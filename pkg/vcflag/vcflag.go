@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
@@ -35,6 +36,10 @@ import (
 
 const (
 	defaultConfigFile = "config"
+)
+
+var (
+	durationKind = reflect.TypeOf(1 * time.Second).Kind()
 )
 
 // Init the config reader via Viper and Cobra objects.
@@ -108,8 +113,21 @@ func getStructTag(f reflect.StructField, tagName string) string {
 // and bind them to viper
 // this function should be called when initialize cobra command
 // return error in case these is any issue when generating flags for CLI
-func GenerateFlags(currentPath string, key string, value reflect.Value,
+func GenerateFlags(currentPath string, key string, value interface{},
 	viperObj *viper.Viper, command *cobra.Command) error {
+
+	original := reflect.ValueOf(value)
+	copy := reflect.New(original.Type()).Elem()
+	return generateFlags(currentPath, key, original, copy, viperObj, command)
+}
+
+// GenerateFlags creates flags based on the attributes of object `value`
+// and bind them to viper
+// this function should be called when initialize cobra command
+// return error in case these is any issue when generating flags for CLI
+func generateFlags(currentPath string, key string, value reflect.Value, copy reflect.Value,
+	viperObj *viper.Viper, command *cobra.Command) error {
+
 	comment := ""
 	if idx := strings.Index(key, ";"); idx >= 0 {
 		comment = strings.Trim(key[idx+1:], " \t")
@@ -120,8 +138,8 @@ func GenerateFlags(currentPath string, key string, value reflect.Value,
 	if currentPath != "" {
 		path = fmt.Sprintf("%s.%s", currentPath, key)
 	}
-	s := value
-	typeOfT := s.Type()
+
+	typeOfT := value.Type()
 	switch value.Kind() {
 	case reflect.Struct:
 		for idx := 0; idx < typeOfT.NumField(); idx += 1 {
@@ -134,24 +152,65 @@ func GenerateFlags(currentPath string, key string, value reflect.Value,
 
 			// if tag is "-", the user wants to skip this field
 			if tag == "-" {
-				return nil
+				continue
 			} else if tag == "" {
 				// if tag is empty, try to use field name to generate flag
 				tag = strings.ReplaceAll(typeOfT.Field(idx).Name, "-", "_")
 				tag = strings.ReplaceAll(tag, ".", "__")
 				tag = strings.ReplaceAll(tag, " ", "_")
-				return GenerateFlags(path, tag, s.Field(idx), viperObj, command)
 			}
+
+			// GenerateFlags(path, tag, value.Field(idx), copy.Field(idx), viperObj, command)
+			generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), viperObj, command)
 		}
+		return nil
+	case durationKind:
+		command.Flags().Duration(path, 0*time.Second, comment)
 	case reflect.Int:
 		command.Flags().Int(path, 0, comment)
-		return viperObj.BindPFlag(path, command.Flags().Lookup(path))
+	case reflect.Uint:
+		command.Flags().Uint(path, 0, comment)
+	case reflect.Int16:
+		command.Flags().Int16(path, 0, comment)
+	case reflect.Uint16:
+		command.Flags().Uint16(path, 0, comment)
+	case reflect.Int32:
+		command.Flags().Int32(path, 0, comment)
+	case reflect.Uint32:
+		command.Flags().Uint32(path, 0, comment)
+	case reflect.Int64:
+		command.Flags().Int64(path, 0, comment)
+	case reflect.Uint64:
+		command.Flags().Uint64(path, 0, comment)
+	case reflect.Array:
+	case reflect.Slice:
+		copy.Set(reflect.MakeSlice(value.Type(), 1, 1))
+		switch copy.Index(0).Kind() {
+		case reflect.Int:
+			command.Flags().IntSlice(path, []int{}, comment)
+		case reflect.Uint:
+			command.Flags().UintSlice(path, []uint{}, comment)
+		case reflect.Int16:
+			command.Flags().Int32Slice(path, []int32{}, comment)
+		case reflect.Uint16:
+			command.Flags().Int32Slice(path, []int32{}, comment)
+		case reflect.Int32:
+			command.Flags().Int32Slice(path, []int32{}, comment)
+		case reflect.Uint32:
+			command.Flags().Int32Slice(path, []int32{}, comment)
+		case reflect.Int64:
+			command.Flags().Int64Slice(path, []int64{}, comment)
+		case reflect.Uint64:
+			command.Flags().Int64Slice(path, []int64{}, comment)
+		default:
+			command.Flags().StringSlice(path, []string{}, comment)
+		}
 	case reflect.String:
 		command.Flags().String(path, "", comment)
-		return viperObj.BindPFlag(path, command.Flags().Lookup(path))
+	default:
+		command.Flags().String(path, "", comment)
 	}
-
-	return nil
+	return viperObj.BindPFlag(path, command.Flags().Lookup(path))
 }
 
 // func getEnvName(flagName string) string {

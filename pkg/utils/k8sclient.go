@@ -6,15 +6,15 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// K8Client is the wrapper of Kubernetes K8Client that helps us easier to mock and test using Dependency Injection
-type K8Client struct {
+// K8sClient is the wrapper of Kubernetes K8sClient that helps us easier to mock and test using Dependency Injection
+type K8sClient struct {
 	Clientset kubernetes.Interface
 }
 
 // IK8sClientHelper is the interface to get a Client
 // Using this way, we can easily create a mock object that satisfies this interface
 type IK8sClientHelper interface {
-	GetClient(pathToCfg string) (*K8Client, error)
+	GetClient(pathToCfg string) (*K8sClient, error)
 }
 
 // ClienHelper is a helper class that implement IClientHelper, and returns the real Kubernetes Clientset
@@ -26,7 +26,7 @@ type K8sClientHelper struct {
 // if the file path is empty, we will use the mode "InCluster"
 // (with a token of serviec account stored in `/var/run/secrets/kubernetes.io/serviceaccount/token`)
 // otherwise, use the server information and authentication information from the path
-func (c K8sClientHelper) GetClient(pathToCfg string) (*K8Client, error) {
+func (c K8sClientHelper) GetClient(pathToCfg string) (*K8sClient, error) {
 	var config *rest.Config
 	var err error
 	if pathToCfg == "" {
@@ -43,6 +43,6 @@ func (c K8sClientHelper) GetClient(pathToCfg string) (*K8Client, error) {
 	if clientset, err := kubernetes.NewForConfig(config); err != nil {
 		return nil, err
 	} else {
-		return &K8Client{Clientset: clientset}, nil
+		return &K8sClient{Clientset: clientset}, nil
 	}
 }
