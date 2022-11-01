@@ -213,11 +213,6 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 	return viperObj.BindPFlag(path, command.Flags().Lookup(path))
 }
 
-// func getEnvName(flagName string) string {
-// 	envVarSuffix := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(flagName, "-", "_"), ".", "__"))
-// 	return fmt.Sprintf("%s_%s", envPrefix, envVarSuffix)
-// }
-
 // Bind each cobra flag to its associated viper configuration (config file and environment variable)
 func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, logger *logr.Logger) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
