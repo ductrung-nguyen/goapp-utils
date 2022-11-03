@@ -1,6 +1,8 @@
 package vcflag
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"reflect"
 	"strings"
@@ -85,6 +87,19 @@ func InitConfigReader(
 		return err
 	}
 
+	BindEnvVarsToFlags(viperObj, cmd, envPrefix, logger)
+
+	return nil
+}
+
+// Init the config reader via Viper and Cobra objects.
+// we can specify either the config file name, or the config name, and its type
+// as well as the locations to find that config files
+func BindEnvVarsToFlags(
+	viperObj *viper.Viper, cmd *cobra.Command,
+	envPrefix string,
+	logger *logr.Logger,
+) {
 	// When we bind flags to environment variables expect that the
 	// environment variables are prefixed, e.g. a flag like --number
 	// binds to an environment variable CTOOLS_NUMBER. This helps
@@ -99,8 +114,6 @@ func InitConfigReader(
 
 	// Bind the current command's flags to viper
 	bindEnvVarsToFlags(cmd, viperObj, envPrefix, logger)
-
-	return nil
 }
 
 // getStructTag returns the value of a specific tag in the object structure
@@ -113,12 +126,10 @@ func getStructTag(f reflect.StructField, tagName string) string {
 // and bind them to viper
 // this function should be called when initialize cobra command
 // return error in case these is any issue when generating flags for CLI
-func GenerateFlags(currentPath string, key string, value interface{},
-	viperObj *viper.Viper, command *cobra.Command) error {
-
+func GenerateFlags(value interface{}, viperObj *viper.Viper, command *cobra.Command) error {
 	original := reflect.ValueOf(value)
 	copy := reflect.New(original.Type()).Elem()
-	return generateFlags(currentPath, key, original, copy, viperObj, command)
+	return generateFlags("", "", original, copy, viperObj, command)
 }
 
 // GenerateFlags creates flags based on the attributes of object `value`
@@ -161,7 +172,9 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 			}
 
 			// GenerateFlags(path, tag, value.Field(idx), copy.Field(idx), viperObj, command)
-			generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), viperObj, command)
+			if err := generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), viperObj, command); err != nil {
+				return err
+			}
 		}
 		return nil
 	case durationKind:
@@ -202,8 +215,10 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 			command.Flags().Int64Slice(path, []int64{}, comment)
 		case reflect.Uint64:
 			command.Flags().Int64Slice(path, []int64{}, comment)
-		default:
+		case reflect.String:
 			command.Flags().StringSlice(path, []string{}, comment)
+		default:
+			return nil
 		}
 	case reflect.String:
 		command.Flags().String(path, "", comment)
@@ -218,21 +233,39 @@ func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, lo
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		// Environment variables can't have dashes in them, so bind them to their equivalent
 		// keys with underscores, e.g. --favorite-color to MYAPP_FAVORITE_COLOR
+		var envVarSuffix string
 		if strings.Contains(f.Name, "-") || strings.Contains(f.Name, ".") {
-			envVarSuffix := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(f.Name, "-", "_"), ".", "__"))
-			envName := fmt.Sprintf("%s_%s", envPrefix, envVarSuffix)
-			logger.V(2).Info("Binding env to flag", "env", envName, "flag", f.Name)
-			_ = v.BindEnv(f.Name, envName)
-			if f.Usage != "" {
-				f.Usage += ". "
-			}
-			f.Usage += "Overrided by Env Var " + envName
+			envVarSuffix = strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(f.Name, "-", "_"), ".", "__"))
+		} else {
+			envVarSuffix = strings.ToUpper(f.Name)
 		}
+
+		envName := fmt.Sprintf("%s_%s", envPrefix, envVarSuffix)
+		logger.V(2).Info("Binding env to flag", "env", envName, "flag", f.Name)
+		_ = v.BindEnv(f.Name, envName)
+		if f.Usage != "" {
+			f.Usage += ". "
+		}
+		f.Usage += "Overrided by Env Var " + envName
 
 		// Apply the viper config value to the flag when the flag is not set and viper has a value
 		if !f.Changed && v.IsSet(f.Name) {
-			val := v.Get(f.Name)
-			_ = cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+			flagVal := v.Get(f.Name)
+			if reflect.TypeOf(flagVal).Kind() == reflect.Slice || reflect.TypeOf(flagVal).Kind() == reflect.Array {
+				slice := reflect.ValueOf(flagVal)
+				dataInStr := make([]string, slice.Len())
+
+				for i := 0; i < slice.Len(); i++ {
+					dataInStr[i] = slice.Index(i).Elem().String()
+				}
+				buff := new(bytes.Buffer)
+				wr := csv.NewWriter(buff)
+				wr.Write(dataInStr)
+				wr.Flush()
+				_ = cmd.Flags().Set(f.Name, buff.String())
+			} else {
+				_ = cmd.Flags().Set(f.Name, fmt.Sprintf("%v", flagVal))
+			}
 		}
 	})
 }

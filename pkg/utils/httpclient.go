@@ -74,7 +74,7 @@ func (RealHTTPClient) SendRequest(
 		req.SetBasicAuth(username, password)
 	}
 
-	if queryParams != nil && len(queryParams) > 0 {
+	if len(queryParams) > 0 {
 		q := req.URL.Query()
 		for k, v := range queryParams {
 			q.Add(k, v)
