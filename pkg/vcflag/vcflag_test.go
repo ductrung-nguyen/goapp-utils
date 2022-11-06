@@ -298,7 +298,65 @@ c:
 			err = ioutil.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
-			InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger)
+			err = InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger, true)
+			Expect(err).NotTo(HaveOccurred())
+
+			unmarshaledData := &dummyStruct{}
+			err = viperObj.Unmarshal(unmarshaledData)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unmarshaledData.C.D).To(Equal([]string{"str 1", "str 2"}))
+			Expect(unmarshaledData.C.E).To(Equal([]int{1, 2, 3}))
+		})
+	})
+
+	Context("config is an nested object + not bind env vars to flags", func() {
+		It("it should return the configuration object correctly", func() {
+			viperObj := viper.GetViper()
+			cmd := &cobra.Command{
+				Use: "test",
+			}
+			logger := GetFakeLoggerWithGinkgo()
+
+			type nestedStruct struct {
+				D []string `yaml:"d"`
+				E []int    `yaml:"e"`
+			}
+			type dummyStruct struct {
+				A int          `yaml:"a" pflag:"a; a simple integer"`
+				B string       `yaml:"b" mapstructure:"-"`
+				C nestedStruct `yaml:"c"`
+			}
+
+			var data = dummyStruct{}
+
+			err := GenerateFlags(data, viperObj, cmd)
+			Expect(err).NotTo(HaveOccurred())
+			BindEnvVarsToFlags(viperObj, cmd, "TEST", &logger)
+
+			configStr := `
+a: 10
+b: a simple b string
+c:
+  d:
+    - str 1
+    - str 2
+  e:
+    - 1
+    - 2
+    - 3
+`
+			configFile, err := os.CreateTemp(".", "*.yaml")
+			if err != nil {
+				panic(err)
+			}
+			defer configFile.Close()
+			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
+			defer os.Remove(configFilename)
+			err = ioutil.WriteFile(configFilename, []byte(configStr), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger, false)
+			Expect(err).NotTo(HaveOccurred())
 
 			unmarshaledData := &dummyStruct{}
 			err = viperObj.Unmarshal(unmarshaledData)

@@ -1,8 +1,6 @@
 package vcflag
 
 import (
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"reflect"
 	"strings"
@@ -47,11 +45,14 @@ var (
 // Init the config reader via Viper and Cobra objects.
 // we can specify either the config file name, or the config name, and its type
 // as well as the locations to find that config files
+// if autoBindEnvVarsToFlags is true, the environment variables are bind automatically to the pflags
+// name of the env vars is based on the struct
 func InitConfigReader(
 	viperObj *viper.Viper, cmd *cobra.Command,
 	cfgFile string, cfgName string, cfgType string, configLocations []string,
 	envPrefix string,
 	logger *logr.Logger,
+	autoBindEnvVarsToFlags bool,
 ) error {
 	if cfgFile == "" && cfgName == "" {
 		cfgFile = defaultConfigFile
@@ -87,7 +88,9 @@ func InitConfigReader(
 		return err
 	}
 
-	BindEnvVarsToFlags(viperObj, cmd, envPrefix, logger)
+	if autoBindEnvVarsToFlags {
+		BindEnvVarsToFlags(viperObj, cmd, envPrefix, logger)
+	}
 
 	return nil
 }
@@ -249,23 +252,23 @@ func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, lo
 		f.Usage += "Overrided by Env Var " + envName
 
 		// Apply the viper config value to the flag when the flag is not set and viper has a value
-		if !f.Changed && v.IsSet(f.Name) {
-			flagVal := v.Get(f.Name)
-			if reflect.TypeOf(flagVal).Kind() == reflect.Slice || reflect.TypeOf(flagVal).Kind() == reflect.Array {
-				slice := reflect.ValueOf(flagVal)
-				dataInStr := make([]string, slice.Len())
+		// if !f.Changed && v.IsSet(f.Name) {
+		// 	flagVal := v.Get(f.Name)
+		// 	if reflect.TypeOf(flagVal).Kind() == reflect.Slice || reflect.TypeOf(flagVal).Kind() == reflect.Array {
+		// 		slice := reflect.ValueOf(flagVal)
+		// 		dataInStr := make([]string, slice.Len())
 
-				for i := 0; i < slice.Len(); i++ {
-					dataInStr[i] = slice.Index(i).Elem().String()
-				}
-				buff := new(bytes.Buffer)
-				wr := csv.NewWriter(buff)
-				wr.Write(dataInStr)
-				wr.Flush()
-				_ = cmd.Flags().Set(f.Name, buff.String())
-			} else {
-				_ = cmd.Flags().Set(f.Name, fmt.Sprintf("%v", flagVal))
-			}
-		}
+		// 		for i := 0; i < slice.Len(); i++ {
+		// 			dataInStr[i] = slice.Index(i).Elem().String()
+		// 		}
+		// 		buff := new(bytes.Buffer)
+		// 		wr := csv.NewWriter(buff)
+		// 		wr.Write(dataInStr)
+		// 		wr.Flush()
+		// 		_ = cmd.Flags().Set(f.Name, buff.String())
+		// 	} else {
+		// 		_ = cmd.Flags().Set(f.Name, fmt.Sprintf("%v", flagVal))
+		// 	}
+		// }
 	})
 }
