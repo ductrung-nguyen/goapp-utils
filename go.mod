@@ -1,4 +1,4 @@
-module rndwww.nce.amadeus.net/git/projects/SPLUNK/repos/goapp-utils
+module rndwww.nce.amadeus.net/SPLUNK/goapp-utils
 
 go 1.18
 

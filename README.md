@@ -5,7 +5,7 @@ As this library is stored in a private repository, in order to use it in your co
 Run the below command (only need to run once):
 
 ```bash
-git config --global url."ssh://git@git.rnd.amadeus.net/splunk/goapp-utils.git".insteadOf "https://rndwww.nce.amadeus.net/git/projects/SPLUNK/repos/goapp-utils/"
+git config --global url."git@git.rnd.amadeus.net/splunk/goapp-utils.git".insteadOf "https://rndwww.nce.amadeus.net/SPLUNK/goapp-utils"
 ```
 
 ### Method 2: Using `replace` in `go.mod`
@@ -14,7 +14,7 @@ or putting this into your `go.mod`
 ```text
 replace (
     # use "go get -insecure gitlab.my-company.com/my-team/my-library" to get latest commit hash
-    rndwww.nce.amadeus.net/git/projects/SPLUNK/repos/goapp-utils => ssh://git@git.rnd.amadeus.net/splunk/goapp-utils.git
+    rndwww.nce.amadeus.net/SPLUNK/goapp-utils => ssh://git@git.rnd.amadeus.net/splunk/goapp-utils.git
 )
 ```
 
