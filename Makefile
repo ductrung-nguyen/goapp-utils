@@ -31,6 +31,7 @@ install-linters:
 
 install-golang-cli:
 	[ -f "./bin/golangci-lint" ] && echo "No need to install golang-cli again" ||  (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.46.2)
+	chmod +x ./bin/golangci-lint
 
 .PHONY: init
 ## initialize the working environment

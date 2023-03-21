@@ -1,4 +1,4 @@
-module github.com/ductrung-nguyen/goapp-utils
+module rndwww.nce.amadeus.net/git/projects/SPLUNK/repos/goapp-utils
 
 go 1.18
 
