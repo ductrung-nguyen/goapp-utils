@@ -222,24 +222,32 @@ var _ = Describe("Test BindEnvVarsToFlags", func() {
 				a int    `pflag:"a; a simple integer"`
 				b string `mapstructure:"-"`
 				c nestedStruct
+				f bool `pflag:"f; force or not"`
 			}
 
-			var data = dummyStruct{a: 1, b: "str", c: nestedStruct{d: []string{"str 1", "str 2"}, e: []int{}}}
+			var data = dummyStruct{
+				a: 1, b: "str",
+				c: nestedStruct{
+					d: []string{"str 1", "str 2"},
+					e: []int{},
+				},
+				f: true,
+			}
 
 			err := GenerateFlags(data, viperObj, cmd)
 			Expect(err).NotTo(HaveOccurred())
 			BindEnvVarsToFlags(viperObj, cmd, "TEST", &logger)
 
 			flags := []string{}
-			values := []string{}
+			valueTypes := []string{}
 			cmd.Flags().VisitAll(func(pf *pflag.Flag) {
 				flags = append(flags, pf.Name)
-				values = append(values, pf.Value.Type())
+				valueTypes = append(valueTypes, pf.Value.Type())
 				Expect(pf.Usage).To(ContainSubstring("Overrided by Env Var "))
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(flags).To(Equal([]string{"a", "c.d"}))
-			Expect(values).To(Equal([]string{"int", "stringSlice"}))
+			Expect(flags).To(Equal([]string{"a", "c.d", "f"}))
+			Expect(valueTypes).To(Equal([]string{"int", "stringSlice", "bool"}))
 
 			// viperObj.Set("c.d", []string{"splunk"})
 
