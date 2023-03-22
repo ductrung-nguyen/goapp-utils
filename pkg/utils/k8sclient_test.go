@@ -37,7 +37,7 @@ var _ = Describe("Test Kubernetes client", func() {
 	Context("Out-of-cluster", func() {
 		Context("Using wrong config path", func() {
 			It("should raise error", func() {
-				_, err := ClientHelper{}.GetClient("/tmp/path" + fmt.Sprint(uuid.NewUUID()))
+				_, err := K8sClientHelper{}.GetClient("/tmp/path" + fmt.Sprint(uuid.NewUUID()))
 				Expect(err).Should(HaveOccurred())
 			})
 		})
@@ -55,7 +55,7 @@ var _ = Describe("Test Kubernetes client", func() {
 					panic("Cannot create file for testing")
 				}
 
-				_, err = ClientHelper{}.GetClient(filename)
+				_, err = K8sClientHelper{}.GetClient(filename)
 				Expect(err).ShouldNot(HaveOccurred())
 
 			})
@@ -64,7 +64,7 @@ var _ = Describe("Test Kubernetes client", func() {
 
 	Context("In-cluster", func() {
 		It("should raise error", func() {
-			_, err := ClientHelper{}.GetClient("")
+			_, err := K8sClientHelper{}.GetClient("")
 			if FileExists(`/var/run/secrets/kubernetes.io/serviceaccount/token`) {
 				Expect(err).ShouldNot(HaveOccurred())
 			} else {
