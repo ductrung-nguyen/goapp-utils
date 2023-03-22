@@ -180,6 +180,8 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 			}
 		}
 		return nil
+	case reflect.Bool:
+		command.Flags().Bool(path, false, comment)
 	case durationKind:
 		command.Flags().Duration(path, 0*time.Second, comment)
 	case reflect.Int:
