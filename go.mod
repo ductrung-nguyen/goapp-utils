@@ -1,9 +1,8 @@
 module rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils
 
-go 1.18
+go 1.20
 
 require (
-	github.com/ductrung-nguyen/goapp-utils v0.0.0-20230222133133-f315c19b0658
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/go-logr/logr v1.2.3
 	github.com/onsi/ginkgo/v2 v2.9.1
