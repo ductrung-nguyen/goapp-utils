@@ -1,7 +1,6 @@
 package vcflag
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -17,6 +16,9 @@ import (
 
 func TestVCFlag(t *testing.T) {
 	RegisterFailHandler(Fail)
+	suiteConfig, repoterConfig := GinkgoConfiguration()
+	suiteConfig.PollProgressAfter = 1 * time.Second
+	repoterConfig.FullTrace = true
 	RunSpecs(t, "VCFlag test suite")
 }
 
@@ -303,7 +305,7 @@ c:
 			defer configFile.Close()
 			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
 			defer os.Remove(configFilename)
-			err = ioutil.WriteFile(configFilename, []byte(configStr), 0755)
+			err = os.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger, true)
@@ -360,7 +362,7 @@ c:
 			defer configFile.Close()
 			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
 			defer os.Remove(configFilename)
-			err = ioutil.WriteFile(configFilename, []byte(configStr), 0755)
+			err = os.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger, false)

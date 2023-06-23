@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 	"golang.org/x/sys/unix"
+	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/utils"
 )
 
 // FileWatcher is a helper struct that helps us watching a file
@@ -80,6 +80,12 @@ func (f *FileWatcher) SetInWatchedQueue(value bool) {
 	f.inWatchedQueue = value
 }
 
+func (f *FileWatcher) getOnChangeHandler() func(f *FileWatcher, event fsnotify.Event) {
+	f.Lock()
+	defer f.Unlock()
+	return f.onChangeHandler
+}
+
 // Start watching the file
 // Even when the file is deleted and re-created, the watcher can still put an eye on it
 // until the context is done
@@ -103,8 +109,8 @@ func (f *FileWatcher) Watch(ctx context.Context) {
 					f.SetFileExist(false)
 					f.SetInWatchedQueue(false)
 				}
-				if f.onChangeHandler != nil {
-					f.onChangeHandler(f, event)
+				if f.getOnChangeHandler() != nil {
+					f.getOnChangeHandler()(f, event)
 				}
 			case err, ok := <-f.watcher.Errors:
 				if !ok {
@@ -123,8 +129,8 @@ func (f *FileWatcher) Watch(ctx context.Context) {
 		for {
 			if !f.FileExist() && utils.FileExists(f.filePath) {
 				f.SetFileExist(true)
-				if f.onChangeHandler != nil {
-					f.onChangeHandler(f, fsnotify.Event{Name: f.filePath, Op: fsnotify.Create})
+				if f.getOnChangeHandler() != nil {
+					f.getOnChangeHandler()(f, fsnotify.Event{Name: f.filePath, Op: fsnotify.Create})
 				}
 			}
 			if f.FileExist() && !f.InWatchedQueue() {
