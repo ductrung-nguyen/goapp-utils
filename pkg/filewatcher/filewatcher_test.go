@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/logger"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/utils"
 )
 
 func TestFileWatcher(t *testing.T) {
@@ -106,24 +106,32 @@ var _ = Describe("Test filewatcher", func() {
 
 			cancel()
 
-			operationWhenCreatingFile := fsnotify.Write
-			if runtime.GOOS == "darwin" {
-				operationWhenCreatingFile = fsnotify.Chmod
-			}
-
 			func() {
 				locker.Lock()
 				defer locker.Unlock()
-				Expect(events).To(Equal([]fsnotify.Event{
+				expected := []fsnotify.Event{
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
-					{Name: watchedFile, Op: operationWhenCreatingFile},
-					{Name: watchedFile, Op: fsnotify.Write},
+				}
 
+				if runtime.GOOS == "darwin" {
+					expected = append(expected, []fsnotify.Event{
+						{Name: watchedFile, Op: fsnotify.Chmod},
+						{Name: watchedFile, Op: fsnotify.Write},
+					}...)
+				} else {
+					expected = append(expected, fsnotify.Event{
+						Name: watchedFile, Op: fsnotify.Write,
+					})
+				}
+
+				expected = append(expected, []fsnotify.Event{
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
 					// {Name: watchedFile, Op: fsnotify.Write},
-				}))
+				}...)
+
+				Expect(events).To(Equal(expected))
 			}()
 
 		})
