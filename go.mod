@@ -8,6 +8,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.8.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.25.3
 )
 
@@ -53,7 +54,6 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.25.3 // indirect
 	k8s.io/klog/v2 v2.70.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
