@@ -54,7 +54,7 @@ func InitLogger(cf *LoggerConfig) {
 			Folder:       "logs",
 			Filename:     "prod.log",
 			LogToConsole: true,
-			Level:        int(zap.DebugLevel),
+			Level:        -int(zap.DebugLevel),
 			// max size of each log file before rolling
 			MaxSizeInMB: 500,
 			// number of backups

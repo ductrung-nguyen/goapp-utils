@@ -106,24 +106,32 @@ var _ = Describe("Test filewatcher", func() {
 
 			cancel()
 
-			operationWhenCreatingFile := fsnotify.Write
-			if runtime.GOOS == "darwin" {
-				operationWhenCreatingFile = fsnotify.Chmod
-			}
-
 			func() {
 				locker.Lock()
 				defer locker.Unlock()
-				Expect(events).To(Equal([]fsnotify.Event{
+				expected := []fsnotify.Event{
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
-					{Name: watchedFile, Op: operationWhenCreatingFile},
-					{Name: watchedFile, Op: fsnotify.Write},
+				}
 
+				if runtime.GOOS == "darwin" {
+					expected = append(expected, []fsnotify.Event{
+						{Name: watchedFile, Op: fsnotify.Chmod},
+						{Name: watchedFile, Op: fsnotify.Write},
+					}...)
+				} else {
+					expected = append(expected, fsnotify.Event{
+						Name: watchedFile, Op: fsnotify.Write,
+					})
+				}
+
+				expected = append(expected, []fsnotify.Event{
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
 					// {Name: watchedFile, Op: fsnotify.Write},
-				}))
+				}...)
+
+				Expect(events).To(Equal(expected))
 			}()
 
 		})
