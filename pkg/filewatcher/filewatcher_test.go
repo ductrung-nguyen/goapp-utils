@@ -2,8 +2,9 @@ package filewatcher
 
 import (
 	"io/fs"
-	"io/ioutil"
 	"os"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 
 func TestFileWatcher(t *testing.T) {
 	RegisterFailHandler(Fail)
+	suiteConfig, repoterConfig := GinkgoConfiguration()
+	suiteConfig.PollProgressAfter = 1 * time.Second
+	repoterConfig.FullTrace = true
 	RunSpecs(t, "VCFlag test suite")
 }
 
@@ -25,7 +29,7 @@ var _ = Describe("Test filewatcher", func() {
 	var watchedFile string
 	BeforeEach(func() {
 		logger.InitLogger(nil)
-		f, err := ioutil.TempFile("/tmp", "test-watcher")
+		f, err := os.CreateTemp("/tmp", "test-watcher")
 		if err != nil {
 			PanicWith(err)
 		}
@@ -45,10 +49,14 @@ var _ = Describe("Test filewatcher", func() {
 	When("file exists already, and then removed, and added again", func() {
 		It("should detect all changes", func() {
 			events := []fsnotify.Event{}
+			locker := sync.Mutex{}
 
-			ioutil.WriteFile(watchedFile, []byte("This is a dummy file"), fs.ModePerm)
+			err := os.WriteFile(watchedFile, []byte("This is a dummy file"), fs.ModePerm)
+			Expect(err).NotTo(HaveOccurred())
 
 			fw, err := New(watchedFile, func(f *FileWatcher, event fsnotify.Event) {
+				locker.Lock()
+				defer locker.Unlock()
 				events = append(events, event)
 			}, nil)
 
@@ -72,12 +80,12 @@ var _ = Describe("Test filewatcher", func() {
 
 				// note that this action only triggers the event CREATE
 				// the event WRITE is paused until another event raised
-				if err := ioutil.WriteFile(watchedFile, []byte("Trigger the action CREATE + WRITE"), fs.ModePerm); err != nil {
+				if err := os.WriteFile(watchedFile, []byte("Trigger the action CREATE + WRITE"), fs.ModePerm); err != nil {
 					PanicWith(err)
 				}
 				time.Sleep(10 * time.Millisecond)
 
-				if err := ioutil.WriteFile(watchedFile, []byte("Execute action WRITE"), fs.ModePerm); err != nil {
+				if err := os.WriteFile(watchedFile, []byte("Execute action WRITE"), fs.ModePerm); err != nil {
 					PanicWith(err)
 				}
 				time.Sleep(10 * time.Millisecond)
@@ -88,7 +96,7 @@ var _ = Describe("Test filewatcher", func() {
 
 				// note that this action only triggers the event CREATE
 				// the event WRITE is paused until another event raised
-				if err := ioutil.WriteFile(watchedFile, []byte("Removed and created again"), fs.ModePerm); err != nil {
+				if err := os.WriteFile(watchedFile, []byte("Removed and created again"), fs.ModePerm); err != nil {
 					PanicWith(err)
 				}
 				time.Sleep(10 * time.Millisecond)
@@ -98,16 +106,33 @@ var _ = Describe("Test filewatcher", func() {
 
 			cancel()
 
-			Expect(events).To(Equal([]fsnotify.Event{
-				{Name: watchedFile, Op: fsnotify.Remove},
-				{Name: watchedFile, Op: fsnotify.Create},
-				{Name: watchedFile, Op: fsnotify.Write},
-				{Name: watchedFile, Op: fsnotify.Write},
+			func() {
+				locker.Lock()
+				defer locker.Unlock()
+				expected := []fsnotify.Event{
+					{Name: watchedFile, Op: fsnotify.Remove},
+					{Name: watchedFile, Op: fsnotify.Create},
+				}
 
-				{Name: watchedFile, Op: fsnotify.Remove},
-				{Name: watchedFile, Op: fsnotify.Create},
-				// {Name: watchedFile, Op: fsnotify.Write},
-			}))
+				if runtime.GOOS == "darwin" {
+					expected = append(expected, []fsnotify.Event{
+						{Name: watchedFile, Op: fsnotify.Chmod},
+						{Name: watchedFile, Op: fsnotify.Write},
+					}...)
+				} else {
+					expected = append(expected, fsnotify.Event{
+						Name: watchedFile, Op: fsnotify.Write,
+					})
+				}
+
+				expected = append(expected, []fsnotify.Event{
+					{Name: watchedFile, Op: fsnotify.Remove},
+					{Name: watchedFile, Op: fsnotify.Create},
+					// {Name: watchedFile, Op: fsnotify.Write},
+				}...)
+
+				Expect(events).To(Equal(expected))
+			}()
 
 		})
 	})

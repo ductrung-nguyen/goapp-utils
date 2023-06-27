@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	urlUtils "net/url"
@@ -102,7 +101,7 @@ func (RealHTTPClient) SendRequest(
 		reader = res.Body
 	}
 
-	contentBytes, err := ioutil.ReadAll(reader)
+	contentBytes, err := io.ReadAll(reader)
 	res.Body.Close()
 
 	if err != nil {

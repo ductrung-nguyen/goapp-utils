@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,7 +50,7 @@ var _ = Describe("Test Kubernetes client", func() {
 				defer f.Close()
 				filename := f.Name()
 				defer os.Remove(filename)
-				if ioutil.WriteFile(filename, []byte(sampleKubeConfig), os.ModePerm) != nil {
+				if os.WriteFile(filename, []byte(sampleKubeConfig), os.ModePerm) != nil {
 					panic("Cannot create file for testing")
 				}
 
