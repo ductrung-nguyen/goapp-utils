@@ -96,7 +96,7 @@ When runnning that application with `go run main.go`, we got:
 When building CLI application that can handle different parameters, we can use either the building package `flag` or other 3rd party library.
 
 For example:
-```golang
+```go
 package main
 
 import (
@@ -120,7 +120,7 @@ func main() {
 	fmt.Println("repeat: ", *repeat)
 }
 ```
-The above application defines 3 flags: "file", "count" and "repeat".
+The above application defines 3 flags: `file`, `count` and `repeat`.
 
 They works fine for simple cases. However, when we need to bind the parameters into a struct, for instance, a configuration struct, it can be more verbose.
 And what if we want to support using parameters from environment variables?
@@ -128,7 +128,7 @@ The module `vcflag` is designed for that purpose. It uses package `viper` to rea
 
 For example, our application has a struct Config to store the configurations.
 
-```golang
+```go
 package main
 
 import (
