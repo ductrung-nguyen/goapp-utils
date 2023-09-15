@@ -38,7 +38,7 @@ pipeline {
       stages {
         stage('Init environment') {
           steps {
-            sh 'apk add build-base docker openrc'
+            sh 'apk add build-base docker openrc git'
             sh 'go mod tidy'
             sh 'wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.52.2'
             sh 'go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@$(cat go.mod | grep ginkgo/v2 | cut -d" " -f2)'
