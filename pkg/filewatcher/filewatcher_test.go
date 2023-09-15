@@ -120,9 +120,13 @@ var _ = Describe("Test filewatcher", func() {
 						{Name: watchedFile, Op: fsnotify.Write},
 					}...)
 				} else {
-					expected = append(expected, fsnotify.Event{
-						Name: watchedFile, Op: fsnotify.Write,
-					})
+					expected = append(expected,
+						fsnotify.Event{
+							Name: watchedFile, Op: fsnotify.Write,
+						},
+						fsnotify.Event{
+							Name: watchedFile, Op: fsnotify.Write,
+						})
 				}
 
 				expected = append(expected, []fsnotify.Event{
