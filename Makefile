@@ -30,7 +30,7 @@ install-testing-package:
 	)
 
 install-golang-cli:
-    # wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION}; \
+    # wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION};
 	[ -f "./bin/golangci-lint" ] && echo "No need to install golang-cli again" ||  (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION})
 
 .PHONY: init
