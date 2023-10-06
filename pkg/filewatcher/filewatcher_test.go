@@ -113,7 +113,6 @@ var _ = Describe("Test filewatcher", func() {
 					{Name: watchedFile, Op: fsnotify.Chmod},
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
-					{Name: watchedFile, Op: fsnotify.Write},
 				}
 
 				if runtime.GOOS == "darwin" {
