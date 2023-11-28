@@ -132,21 +132,15 @@ func getStructTag(f reflect.StructField, tagName string) string {
 func GenerateFlags(value interface{}, viperObj *viper.Viper, command *cobra.Command) error {
 	original := reflect.ValueOf(value)
 	copy := reflect.New(original.Type()).Elem()
-	return generateFlags("", "", original, copy, viperObj, command)
+	return generateFlags("", "", original, copy, "", viperObj, command)
 }
 
 // GenerateFlags creates flags based on the attributes of object `value`
 // and bind them to viper
 // this function should be called when initialize cobra command
 // return error in case these is any issue when generating flags for CLI
-func generateFlags(currentPath string, key string, value reflect.Value, copy reflect.Value,
+func generateFlags(currentPath string, key string, value reflect.Value, copy reflect.Value, usage string,
 	viperObj *viper.Viper, command *cobra.Command) error {
-
-	comment := ""
-	if idx := strings.Index(key, ";"); idx >= 0 {
-		comment = strings.Trim(key[idx+1:], " \t")
-		key = strings.Trim(key[:idx], " \t")
-	}
 
 	path := key
 	if currentPath != "" {
@@ -164,6 +158,8 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 				tag = getStructTag(typeOfT.Field(idx), "mapstructure")
 			}
 
+			usage := strings.Trim(getStructTag(typeOfT.Field(idx), "usage"), " \t")
+
 			// if tag is "-", the user wants to skip this field
 			if tag == "-" {
 				continue
@@ -175,60 +171,60 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 			}
 
 			// GenerateFlags(path, tag, value.Field(idx), copy.Field(idx), viperObj, command)
-			if err := generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), viperObj, command); err != nil {
+			if err := generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), usage, viperObj, command); err != nil {
 				return err
 			}
 		}
 		return nil
 	case reflect.Bool:
-		command.Flags().Bool(path, false, comment)
+		command.Flags().Bool(path, false, usage)
 	case durationKind:
-		command.Flags().Duration(path, 0*time.Second, comment)
+		command.Flags().Duration(path, 0*time.Second, usage)
 	case reflect.Int:
-		command.Flags().Int(path, 0, comment)
+		command.Flags().Int(path, 0, usage)
 	case reflect.Uint:
-		command.Flags().Uint(path, 0, comment)
+		command.Flags().Uint(path, 0, usage)
 	case reflect.Int16:
-		command.Flags().Int16(path, 0, comment)
+		command.Flags().Int16(path, 0, usage)
 	case reflect.Uint16:
-		command.Flags().Uint16(path, 0, comment)
+		command.Flags().Uint16(path, 0, usage)
 	case reflect.Int32:
-		command.Flags().Int32(path, 0, comment)
+		command.Flags().Int32(path, 0, usage)
 	case reflect.Uint32:
-		command.Flags().Uint32(path, 0, comment)
+		command.Flags().Uint32(path, 0, usage)
 	case reflect.Int64:
-		command.Flags().Int64(path, 0, comment)
+		command.Flags().Int64(path, 0, usage)
 	case reflect.Uint64:
-		command.Flags().Uint64(path, 0, comment)
+		command.Flags().Uint64(path, 0, usage)
 	case reflect.Array:
 	case reflect.Slice:
 		copy.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		switch copy.Index(0).Kind() {
 		case reflect.Int:
-			command.Flags().IntSlice(path, []int{}, comment)
+			command.Flags().IntSlice(path, []int{}, usage)
 		case reflect.Uint:
-			command.Flags().UintSlice(path, []uint{}, comment)
+			command.Flags().UintSlice(path, []uint{}, usage)
 		case reflect.Int16:
-			command.Flags().Int32Slice(path, []int32{}, comment)
+			command.Flags().Int32Slice(path, []int32{}, usage)
 		case reflect.Uint16:
-			command.Flags().Int32Slice(path, []int32{}, comment)
+			command.Flags().Int32Slice(path, []int32{}, usage)
 		case reflect.Int32:
-			command.Flags().Int32Slice(path, []int32{}, comment)
+			command.Flags().Int32Slice(path, []int32{}, usage)
 		case reflect.Uint32:
-			command.Flags().Int32Slice(path, []int32{}, comment)
+			command.Flags().Int32Slice(path, []int32{}, usage)
 		case reflect.Int64:
-			command.Flags().Int64Slice(path, []int64{}, comment)
+			command.Flags().Int64Slice(path, []int64{}, usage)
 		case reflect.Uint64:
-			command.Flags().Int64Slice(path, []int64{}, comment)
+			command.Flags().Int64Slice(path, []int64{}, usage)
 		case reflect.String:
-			command.Flags().StringSlice(path, []string{}, comment)
+			command.Flags().StringSlice(path, []string{}, usage)
 		default:
 			return nil
 		}
 	case reflect.String:
-		command.Flags().String(path, "", comment)
+		command.Flags().String(path, "", usage)
 	default:
-		command.Flags().String(path, "", comment)
+		command.Flags().String(path, "", usage)
 	}
 	return viperObj.BindPFlag(path, command.Flags().Lookup(path))
 }

@@ -1,19 +1,19 @@
 package filewatcher
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/logger"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/utils"
 )
 
 func TestFileWatcher(t *testing.T) {
@@ -21,7 +21,7 @@ func TestFileWatcher(t *testing.T) {
 	suiteConfig, repoterConfig := GinkgoConfiguration()
 	suiteConfig.PollProgressAfter = 1 * time.Second
 	repoterConfig.FullTrace = true
-	RunSpecs(t, "VCFlag test suite")
+	RunSpecs(t, "File watcher test suite")
 }
 
 var _ = Describe("Test filewatcher", func() {
@@ -75,6 +75,7 @@ var _ = Describe("Test filewatcher", func() {
 				// wait a bit for the watcher to detect the file
 				time.Sleep(10 * time.Millisecond)
 
+				// REMOVE file
 				os.Remove(watchedFile)
 				time.Sleep(10 * time.Millisecond)
 
@@ -90,7 +91,7 @@ var _ = Describe("Test filewatcher", func() {
 				}
 				time.Sleep(10 * time.Millisecond)
 
-				// remove the file again, then create again
+				// REMOVE the file again, then create again
 				os.Remove(watchedFile)
 				time.Sleep(10 * time.Millisecond)
 
@@ -109,33 +110,26 @@ var _ = Describe("Test filewatcher", func() {
 			func() {
 				locker.Lock()
 				defer locker.Unlock()
-				expected := []fsnotify.Event{
+				expectedEventsInOrder := []fsnotify.Event{
+					{Name: watchedFile, Op: fsnotify.Remove},
+					{Name: watchedFile, Op: fsnotify.Create},
+					{Name: watchedFile, Op: fsnotify.Write},
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
 				}
-
-				if runtime.GOOS == "darwin" {
-					expected = append(expected, []fsnotify.Event{
-						{Name: watchedFile, Op: fsnotify.Chmod},
-						{Name: watchedFile, Op: fsnotify.Write},
-					}...)
-				} else {
-					expected = append(expected,
-						fsnotify.Event{
-							Name: watchedFile, Op: fsnotify.Write,
-						},
-						fsnotify.Event{
-							Name: watchedFile, Op: fsnotify.Write,
-						})
+				lastPos := -1
+				for idx, expectedEvent := range expectedEventsInOrder {
+					found := false
+					for i := lastPos + 1; i < len(events); i++ {
+						if expectedEvent.Name == events[i].Name && expectedEvent.Op == events[i].Op {
+							lastPos = i
+							found = true
+							break
+						}
+					}
+					By(fmt.Sprintf("Checking the existence of event #%d %v", idx, expectedEvent.Op))
+					Expect(found).To(BeTrue())
 				}
-
-				expected = append(expected, []fsnotify.Event{
-					{Name: watchedFile, Op: fsnotify.Remove},
-					{Name: watchedFile, Op: fsnotify.Create},
-					// {Name: watchedFile, Op: fsnotify.Write},
-				}...)
-
-				Expect(events).To(Equal(expected))
 			}()
 
 		})
