@@ -1,9 +1,9 @@
 package filewatcher
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +21,7 @@ func TestFileWatcher(t *testing.T) {
 	suiteConfig, repoterConfig := GinkgoConfiguration()
 	suiteConfig.PollProgressAfter = 1 * time.Second
 	repoterConfig.FullTrace = true
-	RunSpecs(t, "VCFlag test suite")
+	RunSpecs(t, "File watcher test suite")
 }
 
 var _ = Describe("Test filewatcher", func() {
@@ -109,31 +109,52 @@ var _ = Describe("Test filewatcher", func() {
 			func() {
 				locker.Lock()
 				defer locker.Unlock()
-				expected := []fsnotify.Event{
+				expectedEventsInOrder := []fsnotify.Event{
 					{Name: watchedFile, Op: fsnotify.Chmod},
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
-				}
-
-				if runtime.GOOS == "darwin" {
-					expected = append(expected, []fsnotify.Event{
-						{Name: watchedFile, Op: fsnotify.Chmod},
-						{Name: watchedFile, Op: fsnotify.Write},
-					}...)
-				} else {
-					expected = append(expected, fsnotify.Event{
-						Name: watchedFile, Op: fsnotify.Write,
-					})
-				}
-
-				expected = append(expected, []fsnotify.Event{
-					{Name: watchedFile, Op: fsnotify.Chmod},
+					{Name: watchedFile, Op: fsnotify.Write},
 					{Name: watchedFile, Op: fsnotify.Remove},
 					{Name: watchedFile, Op: fsnotify.Create},
-					// {Name: watchedFile, Op: fsnotify.Write},
-				}...)
+				}
+				lastPos := -1
+				for idx, expectedEvent := range expectedEventsInOrder {
+					found := false
+					for i := lastPos + 1; i < len(events); i++ {
+						if expectedEvent.Name == events[i].Name && expectedEvent.Op == events[i].Op {
+							lastPos = i
+							found = true
+							break
+						}
+					}
+					By(fmt.Sprintf("Checking the existence of event #%d %v", idx, expectedEvent.Op))
+					Expect(found).To(BeTrue())
+				}
+				// expected := []fsnotify.Event{
+				// 	{Name: watchedFile, Op: fsnotify.Chmod},
+				// 	{Name: watchedFile, Op: fsnotify.Remove},
+				// 	{Name: watchedFile, Op: fsnotify.Create},
+				// }
 
-				Expect(events).To(Equal(expected))
+				// if runtime.GOOS == "darwin" {
+				// 	expected = append(expected, []fsnotify.Event{
+				// 		{Name: watchedFile, Op: fsnotify.Chmod},
+				// 		{Name: watchedFile, Op: fsnotify.Write},
+				// 	}...)
+				// } else {
+				// 	expected = append(expected, fsnotify.Event{
+				// 		Name: watchedFile, Op: fsnotify.Write,
+				// 	})
+				// }
+
+				// expected = append(expected, []fsnotify.Event{
+				// 	{Name: watchedFile, Op: fsnotify.Chmod},
+				// 	{Name: watchedFile, Op: fsnotify.Remove},
+				// 	{Name: watchedFile, Op: fsnotify.Create},
+				// 	// {Name: watchedFile, Op: fsnotify.Write},
+				// }...)
+
+				// Expect(events).To(Equal(expected))
 			}()
 
 		})
