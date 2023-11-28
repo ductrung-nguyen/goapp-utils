@@ -221,10 +221,10 @@ var _ = Describe("Test BindEnvVarsToFlags", func() {
 				e []int `pflag:"-"`
 			}
 			type dummyStruct struct {
-				a int    `pflag:"a; a simple integer"`
+				a int    `pflag:"a" usage:"a simple integer"`
 				b string `mapstructure:"-"`
 				c nestedStruct
-				f bool `pflag:"f; force or not"`
+				f bool `pflag:"f" usage:" force or not"`
 			}
 
 			var data = dummyStruct{
@@ -246,6 +246,12 @@ var _ = Describe("Test BindEnvVarsToFlags", func() {
 				flags = append(flags, pf.Name)
 				valueTypes = append(valueTypes, pf.Value.Type())
 				Expect(pf.Usage).To(ContainSubstring("Overrided by Env Var "))
+				switch pf.Name {
+				case "a":
+					Expect(pf.Usage).To(ContainSubstring("a simple integer"))
+				case "c":
+					Expect(pf.Usage).To(ContainSubstring("force or not"))
+				}
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(flags).To(Equal([]string{"a", "c.d", "f"}))
@@ -320,30 +326,21 @@ c:
 	})
 
 	Context("config is an nested object + not bind env vars to flags", func() {
-		It("it should return the configuration object correctly", func() {
-			viperObj := viper.GetViper()
-			cmd := &cobra.Command{
-				Use: "test",
-			}
-			logger := GetFakeLoggerWithGinkgo()
 
-			type nestedStruct struct {
-				D []string `yaml:"d"`
-				E []int    `yaml:"e"`
-			}
-			type dummyStruct struct {
-				A int          `yaml:"a" pflag:"a; a simple integer"`
-				B string       `yaml:"b" mapstructure:"-"`
-				C nestedStruct `yaml:"c"`
-			}
+		var configStr string
+		var cmd *cobra.Command
+		logger := GetFakeLoggerWithGinkgo()
 
-			var data = dummyStruct{}
-
-			err := GenerateFlags(data, viperObj, cmd)
-			Expect(err).NotTo(HaveOccurred())
-			BindEnvVarsToFlags(viperObj, cmd, "TEST", &logger)
-
-			configStr := `
+		type nestedStruct struct {
+			D []string `yaml:"d"`
+			E []int    `yaml:"e"`
+		}
+		type dummyStruct struct {
+			A int          `yaml:"a" pflag:"a" usage:"a simple integer"`
+			B string       `yaml:"b" mapstructure:"-"`
+			C nestedStruct `yaml:"c"`
+		}
+		configStr = `
 a: 10
 b: a simple b string
 c:
@@ -355,6 +352,23 @@ c:
     - 2
     - 3
 `
+
+		var data = dummyStruct{}
+
+		BeforeEach(func() {
+			cmd = &cobra.Command{
+				Use: "test",
+			}
+		})
+
+		It("should return the configuration object with some overrides from env variables", func() {
+			GinkgoT().Setenv("TEST_A", "20")
+			viperObj := viper.GetViper()
+
+			err := GenerateFlags(data, viperObj, cmd)
+			Expect(err).NotTo(HaveOccurred())
+			BindEnvVarsToFlags(viperObj, cmd, "TEST", &logger)
+
 			configFile, err := os.CreateTemp(".", "*.yaml")
 			if err != nil {
 				panic(err)
@@ -371,6 +385,35 @@ c:
 			unmarshaledData := &dummyStruct{}
 			err = viperObj.Unmarshal(unmarshaledData)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(unmarshaledData.A).To(Equal(20))
+			Expect(unmarshaledData.C.D).To(Equal([]string{"str 1", "str 2"}))
+			Expect(unmarshaledData.C.E).To(Equal([]int{1, 2, 3}))
+		})
+
+		It("should return the configuration object W/O some overrides from env variables", func() {
+			viperObj := viper.GetViper()
+
+			err := GenerateFlags(data, viperObj, cmd)
+			Expect(err).NotTo(HaveOccurred())
+			BindEnvVarsToFlags(viperObj, cmd, "TEST", &logger)
+
+			configFile, err := os.CreateTemp(".", "*.yaml")
+			if err != nil {
+				panic(err)
+			}
+			defer configFile.Close()
+			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
+			defer os.Remove(configFilename)
+			err = os.WriteFile(configFilename, []byte(configStr), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = InitConfigReader(viperObj, cmd, configFilename, "", "", []string{}, "TEST", &logger, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			unmarshaledData := &dummyStruct{}
+			err = viperObj.Unmarshal(unmarshaledData)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unmarshaledData.A).To(Equal(10))
 			Expect(unmarshaledData.C.D).To(Equal([]string{"str 1", "str 2"}))
 			Expect(unmarshaledData.C.E).To(Equal([]int{1, 2, 3}))
 		})
