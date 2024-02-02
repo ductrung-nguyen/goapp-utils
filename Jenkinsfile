@@ -26,7 +26,7 @@ pipeline {
     stage('Build & Test') {
         agent {
           docker {
-            image GLOBAL_REGISTRY + '/golang:1.20-alpine3.17'
+            image GLOBAL_REGISTRY + '/golang:1.21-alpine3.17'
             registryUrl 'https://' + GLOBAL_REGISTRY
             args '--user root --privileged'
 
@@ -40,7 +40,7 @@ pipeline {
           steps {
             sh 'apk add build-base docker openrc git'
             sh 'go mod tidy'
-            sh 'wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.52.2'
+            sh 'wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.55.2'
             sh 'go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@$(cat go.mod | grep ginkgo/v2 | cut -d" " -f2)'
             sh 'go get github.com/onsi/gomega/...'
           }

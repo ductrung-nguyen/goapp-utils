@@ -23,7 +23,7 @@ type HttpClientInterface interface {
 		username string,
 		password string,
 		timeout time.Duration,
-	) (content string, statusCode int, err error)
+	) (content []byte, statusCode int, err error)
 }
 
 // RealHTTPClient implements the real http client service
@@ -45,10 +45,10 @@ func (RealHTTPClient) SendRequest(
 	username string,
 	password string,
 	timeout time.Duration,
-) (content string, statusCode int, err error) {
+) (content []byte, statusCode int, err error) {
 	_, err = urlUtils.Parse(url)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	client := &http.Client{
@@ -67,7 +67,7 @@ func (RealHTTPClient) SendRequest(
 
 	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 	if username != "" || password != "" {
 		req.SetBasicAuth(username, password)
@@ -87,7 +87,7 @@ func (RealHTTPClient) SendRequest(
 
 	res, err := client.Do(req)
 	if err != nil {
-		return "", 0, err
+		return nil, 0, err
 	}
 
 	defer res.Body.Close()
@@ -105,8 +105,8 @@ func (RealHTTPClient) SendRequest(
 	res.Body.Close()
 
 	if err != nil {
-		return "", res.StatusCode, err
+		return nil, res.StatusCode, err
 	}
 
-	return string(contentBytes), res.StatusCode, nil
+	return contentBytes, res.StatusCode, nil
 }

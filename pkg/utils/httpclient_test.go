@@ -15,7 +15,7 @@ var _ = Describe("Client", func() {
 	var (
 		server     *ghttp.Server
 		statusCode int
-		body       string
+		body       []byte
 		path       string
 		addr       string
 		username   string
@@ -64,7 +64,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/"
-			body = "Hi there, the end point is :!"
+			body = []byte("Hi there, the end point is :!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -84,7 +84,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/"
-			body = "Hi there, the end point is :!"
+			body = []byte("Hi there, the end point is :!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -103,7 +103,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/hello"
-			body = "Hi there, the end point is :hello!"
+			body = []byte("Hi there, the end point is :hello!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -123,7 +123,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/hello"
-			body = "Hi there, the end point is :hello!"
+			body = []byte("Hi there, the end point is :hello!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -144,7 +144,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/hello"
-			body = "Hi there, the end point is :hello!"
+			body = []byte("Hi there, the end point is :hello!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -171,7 +171,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/hello"
-			body = "Hi there, the end point is :hello!"
+			body = []byte("Hi there, the end point is :hello!")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -198,7 +198,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 200
 			path = "/hello"
-			body = "Hi there, the end point is :hello!"
+			body = []byte("Hi there, the end point is :hello!")
 			addr = "http://" + server.Addr() + path
 			username = "test_username"
 			password = "test_password"
@@ -220,7 +220,7 @@ var _ = Describe("Client", func() {
 		BeforeEach(func() {
 			statusCode = 500
 			path = "/read"
-			body = "open data.txt: no such file or directory\r\n"
+			body = []byte("open data.txt: no such file or directory\r\n")
 			addr = "http://" + server.Addr() + path
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
