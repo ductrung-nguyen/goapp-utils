@@ -1,10 +1,15 @@
 
-GO_VERSION := 1.20
+GO_VERSION := 1.21
 
 # ginkgo version
 GINKGO_VERSION := $(shell cat go.mod | grep ginkgo/v2 | cut -d" " -f2)
+INSTALLED_GINKGO_VERSION =  $(shell (ginkgo version | cut -d ' ' -f3) || '')
 
-GOLANG_CI_LINT_VERSION := 1.52.2
+
+# Registry
+REGISTRY := dockerhub.rnd.amadeus.net:5002/splunk/app-controller
+GOLANG_CI_LINT_VERSION := 1.55.2
+INSTALLED_GOLANG_CI_LINT_VERSION =  $(shell (./bin/golangci-lint --version | grep -o "version \S*" | cut -d" " -f2) || '')
 
 .PHONY: all $(DIRS)
 all: test
@@ -25,13 +30,17 @@ install-go:
 .PHONY: install-testing-package
 install-testing-package:
 	command -v ginkgo >/dev/null 2>&1 && echo "No need to install testing package again" || ( \
+		wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION}; \
 		go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}; \
 		go get github.com/onsi/gomega/...; \
 	)
 
+	[ "${INSTALLED_GINKGO_VERSION}" = "${GINKGO_VERSION}" ] || go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
+
 install-golang-cli:
-    # wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION}; \
 	[ -f "./bin/golangci-lint" ] && echo "No need to install golang-cli again" ||  (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION})
+
+	[ "${GOLANG_CI_LINT_VERSION}" = "${INSTALLED_GOLANG_CI_LINT_VERSION}" ] || (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION})
 
 .PHONY: init
 ## initialize the working environment
