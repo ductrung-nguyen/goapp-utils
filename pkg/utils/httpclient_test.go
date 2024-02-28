@@ -34,7 +34,7 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the empty path", func() {
 			httpClient := &RealHTTPClient{}
-			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second))
 			Expect(err).Should(HaveOccurred())
 		})
 	})
@@ -44,7 +44,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the empty path", func() {
 			httpClient := &RealHTTPClient{}
-			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).Should(HaveOccurred())
 		})
 	})
@@ -56,7 +57,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the empty path", func() {
 			httpClient := &RealHTTPClient{}
-			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).Should(HaveOccurred())
 		})
 	})
@@ -74,7 +76,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the empty path", func() {
 			httpClient := &RealHTTPClient{}
-			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -94,7 +97,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the empty path", func() {
 			httpClient := &RealHTTPClient{}
-			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -113,7 +117,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the hello path", func() {
 			httpClient := &RealHTTPClient{}
-			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -134,7 +139,8 @@ var _ = Describe("Client", func() {
 		It("Returns the hello path", func() {
 			httpClient := &RealHTTPClient{}
 			cookie, _ := cookiejar.New(nil)
-			gotBody, _, err := httpClient.SendRequest(addr, cookie, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			gotBody, _, err := httpClient.SendRequest(addr, cookie, nil, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -158,10 +164,11 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the hello path", func() {
 			httpClient := &RealHTTPClient{}
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
 			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, map[string]string{
 				"q":    "logging",
 				"sort": "asc",
-			}, true, "", "", 1*time.Second)
+			}, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -185,10 +192,11 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the hello path", func() {
 			httpClient := &RealHTTPClient{}
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
 			gotBody, _, err := httpClient.SendRequest(addr, nil, map[string]string{
 				"header1": "value1",
 				"header2": "value2",
-			}, "GET", nil, nil, true, "", "", 1*time.Second)
+			}, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -211,7 +219,8 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns the hello path with correct credentials", func() {
 			httpClient := &RealHTTPClient{}
-			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, username, password, 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{username, password}, 1*time.Second)
+			gotBody, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(gotBody).To(Equal(body))
 		})
@@ -230,33 +239,9 @@ var _ = Describe("Client", func() {
 		})
 		It("Returns internal server error", func() {
 			httpClient := &RealHTTPClient{}
-			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, true, "", "", 1*time.Second)
+			requestOptions := NewRequestOptions(true, HttpBasicAuth{"", ""}, 1*time.Second)
+			_, _, err := httpClient.SendRequest(addr, nil, nil, "GET", nil, nil, requestOptions)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
-	// Context("When get request is sent to read path but file exists", func() {
-	// 	BeforeEach(func() {
-	// 		file, err := os.Create("data.txt")
-	// 		Expect(err).NotTo(HaveOccurred())
-	// 		body = []byte("Hi there!")
-	// 		file.Write(body)
-	// 		statusCode = 200
-	// 		path = "/read"
-	// 		addr = "http://" + server.Addr() + path
-	// 		server.AppendHandlers(
-	// 			ghttp.CombineHandlers(
-	// 				ghttp.VerifyRequest("GET", path),
-	// 				ghttp.RespondWithPtr(&statusCode, &body),
-	// 			))
-	// 	})
-	// 	AfterEach(func() {
-	// 		err := os.Remove("data.txt")
-	// 		Expect(err).NotTo(HaveOccurred())
-	// 	})
-	// 	It("Reads data from file successfully", func() {
-	// 		bdy, err := getResponse(addr)
-	// 		Expect(err).ShouldNot(HaveOccurred())
-	// 		Expect(bdy).To(Equal(body))
-	// 	})
-	// })
 })

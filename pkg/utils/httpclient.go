@@ -10,6 +10,34 @@ import (
 	"time"
 )
 
+type HttpBasicAuth struct {
+	Username string
+	Password string
+}
+
+type RequestOptions struct {
+	// whether to skip insecure certificate verification.
+	SkipInsecureVerify bool
+
+	// Auth represents the HTTP basic authentication credentials.
+	Auth HttpBasicAuth
+
+	// Timeout represents the request timeout.
+	Timeout time.Duration
+}
+
+// NewRequestOptions creates a new RequestOptions struct with the specified parameters.
+// It takes a boolean value skipInsecurityVerify to indicate whether to skip insecure certificate verification,
+// an HttpBasicAuth struct auth for HTTP basic authentication, and a time.Duration timeout for the request timeout.
+// It returns a RequestOptions struct.
+func NewRequestOptions(skipInsecurityVerify bool, auth HttpBasicAuth, timeout time.Duration) RequestOptions {
+	return RequestOptions{
+		SkipInsecureVerify: skipInsecurityVerify,
+		Auth:               auth,
+		Timeout:            timeout,
+	}
+}
+
 // HttpClientInterface is a simple interface that defines the functions of a HTTP client
 type HttpClientInterface interface {
 	SendRequest(
@@ -19,10 +47,7 @@ type HttpClientInterface interface {
 		method string,
 		payload io.Reader,
 		queryParams map[string]string,
-		skipInsecureVerify bool,
-		username string,
-		password string,
-		timeout time.Duration,
+		options RequestOptions,
 	) (content []byte, statusCode int, err error)
 }
 
@@ -41,10 +66,7 @@ func (RealHTTPClient) SendRequest(
 	method string,
 	payload io.Reader,
 	queryParams map[string]string,
-	skipInsecureVerify bool,
-	username string,
-	password string,
-	timeout time.Duration,
+	options RequestOptions,
 ) (content []byte, statusCode int, err error) {
 	_, err = urlUtils.Parse(url)
 	if err != nil {
@@ -54,9 +76,9 @@ func (RealHTTPClient) SendRequest(
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost: 30,
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: skipInsecureVerify},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: options.SkipInsecureVerify},
 		},
-		Timeout: timeout,
+		Timeout: options.Timeout,
 	}
 	if cookieJar != nil {
 		client.Jar = cookieJar
@@ -69,8 +91,8 @@ func (RealHTTPClient) SendRequest(
 	if err != nil {
 		return nil, 0, err
 	}
-	if username != "" || password != "" {
-		req.SetBasicAuth(username, password)
+	if options.Auth.Username != "" || options.Auth.Password != "" {
+		req.SetBasicAuth(options.Auth.Username, options.Auth.Password)
 	}
 
 	if len(queryParams) > 0 {
