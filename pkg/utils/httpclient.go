@@ -59,7 +59,7 @@ var _ HttpClientInterface = RealHTTPClient{}
 
 // SendRequest sends a get request and return the response
 // if the response is compressed, un-compress it first and then return
-func (RealHTTPClient) SendRequest(
+func (realClient RealHTTPClient) SendRequest(
 	url string,
 	cookieJar *cookiejar.Jar,
 	header map[string]string,
@@ -68,12 +68,36 @@ func (RealHTTPClient) SendRequest(
 	queryParams map[string]string,
 	options RequestOptions,
 ) (content []byte, statusCode int, err error) {
+	// call StreamRequest to get the response
+	reader, statusCode, err := realClient.StreamRequest(url, cookieJar, header, method, payload, queryParams, options)
+	if err != nil {
+		return nil, statusCode, err
+	}
+	defer reader.Close()
+	contentBytes, err := io.ReadAll(reader)
+
+	if err != nil {
+		return nil, statusCode, err
+	}
+
+	return contentBytes, statusCode, nil
+}
+
+func (realClient RealHTTPClient) StreamRequest(
+	url string,
+	cookieJar *cookiejar.Jar,
+	header map[string]string,
+	method string,
+	payload io.Reader,
+	queryParams map[string]string,
+	options RequestOptions,
+) (data io.ReadCloser, statusCode int, err error) {
 	_, err = urlUtils.Parse(url)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	client := &http.Client{
+	httpClient := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost: 30,
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: options.SkipInsecureVerify},
@@ -81,7 +105,7 @@ func (RealHTTPClient) SendRequest(
 		Timeout: options.Timeout,
 	}
 	if cookieJar != nil {
-		client.Jar = cookieJar
+		httpClient.Jar = cookieJar
 	}
 	if method == "" {
 		method = http.MethodGet
@@ -107,28 +131,22 @@ func (RealHTTPClient) SendRequest(
 		req.Header.Set(k, v)
 	}
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, 0, err
 	}
-
-	defer res.Body.Close()
 
 	var reader io.ReadCloser
 	switch res.Header.Get("Content-Encoding") {
 	case "gzip":
 		reader, err = gzip.NewReader(res.Body)
-		defer reader.Close()
 	default:
 		reader = res.Body
 	}
-
-	contentBytes, err := io.ReadAll(reader)
-	res.Body.Close()
 
 	if err != nil {
 		return nil, res.StatusCode, err
 	}
 
-	return contentBytes, res.StatusCode, nil
+	return reader, res.StatusCode, nil
 }
