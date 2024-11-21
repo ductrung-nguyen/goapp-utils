@@ -80,7 +80,28 @@ pipeline {
               // sh 'go test ./integration/test.go'
               }
             }
-
+            
+            stage('SonarQube') {
+              steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                  script {
+                    checkout scm
+                    docker.image('dockerhub.rnd.amadeus.net/docker-dev-rfas-nce/sonar/node_18:latest').inside {
+                      stage('Build') {
+                        sh "echo build done!"
+                      }
+                      stage('SonarQube analysis') {
+                        withSwbSonarQubeEnv() {
+                          if (SONAR_ARGS?.trim()) {
+                            sh "/sonar-scanner/bin/sonar-scanner ${SONAR_ARGS}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
 
         }
