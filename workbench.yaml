@@ -1,0 +1,49 @@
+team: "TSI-PFS-CFS-OAO"
+
+# this title will be used in the changelogs in the Confluence page
+APP_TITLE: "Go App Utils"
+
+CONFLUENCE:
+  # The URL of the Confluence instance
+  # * "https://rndwww.nce.amadeus.net/confluence" for the NCE Confluence
+  # * "https://amadeus.atlassian.net/wiki" for the Cloud Confluence
+  # keep it empty to use the NCE confluence
+  URL: "https://amadeus.atlassian.net/wiki"
+
+  # Id of the parent page that will store the changelogs of the application
+  # For example: 1607014895 => https://amadeus.atlassian.net/wiki/spaces/LOGLAP/pages/1607014895/Federated+Search+Assistant
+  # PAGE_ID: 1607014895
+
+  # in which space
+  SPACE_KEY: "LOGLAP"
+
+  # should we allow the beta changelog to be published
+  ALLOW_BETA_CHANGELOGS: true
+
+# The name of the Helm repository where we store the Helm charts to
+HELM:
+  ARTIFACTORY_BASE_URL: https://repository.adp.amadeus.net/artifactory
+  # where the Helm charts will be stored
+  ARTIFACTORY_NAME: "helm-prod-splunk-nce"
+
+DOCKER:
+  # the registry where the image will be pulled
+  GLOBAL_REGISTRY: "dockerhub.rnd.amadeus.net:5002"
+
+  # the base domain of the dedicated registry
+  DEDICATED_BASE_DOMAIN: "nce.dockerhub.rnd.amadeus.net"
+
+  # the registry where the image will be pushed
+  # was created from ControlTower using IZ_USER splunk: https://controltower.cicd.rnd.amadeus.net/isolationZones/splunk
+  DEDICATED_ARTIFACTORY_NAME_DEV: "docker-dev-splunk-nce"
+  DEDICATED_ARTIFACTORY_NAME_PRD: "docker-production-splunk-nce"
+
+ALLOW_PR_TO_MASTER_FROM:
+  - "^hotfix/.*$"
+  - "^beta$"
+  # from a tag of beta version: vX.Y.Z-beta.N
+  - "^v[0-9]+\\.[0-9]+\\.[0-9]+-beta\\.[0-9]+$"
+
+EMAIL:
+  FAILURE_RECIPIENTS:
+    - "ductrung.nguyen@amadeus.com"

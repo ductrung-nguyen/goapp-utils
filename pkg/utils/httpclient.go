@@ -52,8 +52,7 @@ type HttpClientInterface interface {
 }
 
 // RealHTTPClient implements the real http client service
-type RealHTTPClient struct {
-}
+type RealHTTPClient struct{}
 
 var _ HttpClientInterface = RealHTTPClient{}
 
@@ -73,14 +72,15 @@ func (realClient RealHTTPClient) SendRequest(
 	if err != nil {
 		return nil, statusCode, err
 	}
-	defer reader.Close()
+	defer func() {
+		err = reader.Close()
+	}()
 	contentBytes, err := io.ReadAll(reader)
-
 	if err != nil {
 		return nil, statusCode, err
 	}
 
-	return contentBytes, statusCode, nil
+	return contentBytes, statusCode, err
 }
 
 func (realClient RealHTTPClient) StreamRequest(

@@ -25,7 +25,6 @@ func TestFileWatcher(t *testing.T) {
 }
 
 var _ = Describe("Test filewatcher", func() {
-
 	var watchedFile string
 	BeforeEach(func() {
 		logger.InitLogger(nil)
@@ -42,7 +41,7 @@ var _ = Describe("Test filewatcher", func() {
 
 	AfterEach(func() {
 		if utils.FileExists(watchedFile) {
-			os.Remove(watchedFile)
+			_ = os.Remove(watchedFile)
 		}
 	})
 
@@ -76,7 +75,7 @@ var _ = Describe("Test filewatcher", func() {
 				time.Sleep(10 * time.Millisecond)
 
 				// REMOVE file
-				os.Remove(watchedFile)
+				_ = os.Remove(watchedFile)
 				time.Sleep(10 * time.Millisecond)
 
 				// note that this action only triggers the event CREATE
@@ -92,7 +91,7 @@ var _ = Describe("Test filewatcher", func() {
 				time.Sleep(10 * time.Millisecond)
 
 				// REMOVE the file again, then create again
-				os.Remove(watchedFile)
+				_ = os.Remove(watchedFile)
 				time.Sleep(10 * time.Millisecond)
 
 				// note that this action only triggers the event CREATE
@@ -131,7 +130,6 @@ var _ = Describe("Test filewatcher", func() {
 					Expect(found).To(BeTrue())
 				}
 			}()
-
 		})
 	})
 })

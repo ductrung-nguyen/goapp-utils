@@ -103,9 +103,10 @@ func (f *FileWatcher) Watch(ctx context.Context) {
 				if !ok {
 					return
 				}
-				if event.Op == fsnotify.Create {
+				switch event.Op {
+				case fsnotify.Create:
 					f.SetFileExist(true)
-				} else if event.Op == fsnotify.Remove {
+				case fsnotify.Remove:
 					f.SetFileExist(false)
 					f.SetInWatchedQueue(false)
 				}

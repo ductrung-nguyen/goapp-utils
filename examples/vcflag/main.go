@@ -27,9 +27,11 @@ type Config struct {
 	Logger logger.LoggerConfig `yaml:"logger"`
 }
 
-var configManager *viper.Viper
-var cfgFile string           // allow user to specify the config file in a custom path
-var generateEmptyConfig bool // should we generate empty config file?
+var (
+	configManager       *viper.Viper
+	cfgFile             string // allow user to specify the config file in a custom path
+	generateEmptyConfig bool   // should we generate empty config file?
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -42,8 +44,13 @@ var rootCmd = &cobra.Command{
 		// This function will be run before the main logic execution
 		if generateEmptyConfig {
 			b, err := yaml.Marshal(Config{})
-			os.WriteFile("config.yaml", b, os.ModePerm)
-			return err
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile("config.yaml", b, os.ModePerm); err != nil {
+				return err
+			}
+			return nil
 		}
 		// before running the command, we need to setup the config manager
 		// to ask it to look at the configuration file in different directories
@@ -92,7 +99,6 @@ func main() {
 // and we are not able to modify the main configuration file easily. In that case, we only need to create new configmaps
 // and mount it as the debugging configuration file to override the default configurations
 func setupConfigManager(cfgManager *viper.Viper, configFileName string, cmd *cobra.Command, args []string) error {
-
 	// look for configuration file containing command name by order of the lower priority:
 	// first ./configs/yaml, then ./config.yaml, and then $HOME/.vcflag/config.yaml
 	configLocations := []string{"./configs/" + cmd.Name(), "./configs", ".", fmt.Sprintf("$HOME/.%s", cmd.Root().Name())}
