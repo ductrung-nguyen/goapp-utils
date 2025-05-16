@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/ductrung-nguyen/goapp-utils v0.0.0-20231128132343-ce956f8e4838
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/spf13/pflag v1.0.5
