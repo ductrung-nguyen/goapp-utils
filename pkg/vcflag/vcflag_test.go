@@ -58,7 +58,7 @@ var _ = Describe("Test GenerateFlags", func() {
 		})
 		Context("duration", func() {
 			It("Should generate flags ok", func() {
-				var data = 3 * time.Second
+				data := 3 * time.Second
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -75,13 +75,12 @@ var _ = Describe("Test GenerateFlags", func() {
 
 		Context("struct", func() {
 			It("Should generate flags ok", func() {
-
 				type dummyStruct struct {
 					A int
 					B string
 				}
 
-				var data = dummyStruct{}
+				data := dummyStruct{}
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -107,7 +106,7 @@ var _ = Describe("Test GenerateFlags", func() {
 					C nestedStruct
 				}
 
-				var data = dummyStruct{}
+				data := dummyStruct{}
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -129,7 +128,7 @@ var _ = Describe("Test GenerateFlags", func() {
 					b string
 				}
 
-				var data = dummyStruct{a: 1, b: "str"}
+				data := dummyStruct{a: 1, b: "str"}
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -156,7 +155,7 @@ var _ = Describe("Test GenerateFlags", func() {
 					c nestedStruct
 				}
 
-				var data = dummyStruct{a: 1, b: "str", c: nestedStruct{d: []string{"str 1", "str 2"}, e: []int{}}}
+				data := dummyStruct{a: 1, b: "str", c: nestedStruct{d: []string{"str 1", "str 2"}, e: []int{}}}
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -183,7 +182,7 @@ var _ = Describe("Test GenerateFlags", func() {
 					c nestedStruct
 				}
 
-				var data = dummyStruct{a: 1, b: "str", c: nestedStruct{d: []string{"str 1", "str 2"}, e: []int{}}}
+				data := dummyStruct{a: 1, b: "str", c: nestedStruct{d: []string{"str 1", "str 2"}, e: []int{}}}
 				command := &cobra.Command{}
 				err := GenerateFlags(data, viper.New(), command)
 				flags := []string{}
@@ -227,7 +226,7 @@ var _ = Describe("Test BindEnvVarsToFlags", func() {
 				f bool `pflag:"f" usage:" force or not"`
 			}
 
-			var data = dummyStruct{
+			data := dummyStruct{
 				a: 1, b: "str",
 				c: nestedStruct{
 					d: []string{"str 1", "str 2"},
@@ -286,7 +285,7 @@ var _ = Describe("Test InitConfigReader", func() {
 				C nestedStruct `yaml:"c"`
 			}
 
-			var data = dummyStruct{}
+			data := dummyStruct{}
 
 			err := GenerateFlags(data, viperObj, cmd)
 			Expect(err).NotTo(HaveOccurred())
@@ -308,9 +307,17 @@ c:
 			if err != nil {
 				panic(err)
 			}
-			defer configFile.Close()
+			defer func() {
+				if err := configFile.Close(); err != nil {
+					panic(err)
+				}
+			}()
 			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
-			defer os.Remove(configFilename)
+			defer func() {
+				if err := os.Remove(configFilename); err != nil {
+					panic(err)
+				}
+			}()
 			err = os.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -326,7 +333,6 @@ c:
 	})
 
 	Context("config is an nested object + not bind env vars to flags", func() {
-
 		var configStr string
 		var cmd *cobra.Command
 		logger := GetFakeLoggerWithGinkgo()
@@ -353,7 +359,7 @@ c:
     - 3
 `
 
-		var data = dummyStruct{}
+		data := dummyStruct{}
 
 		BeforeEach(func() {
 			cmd = &cobra.Command{
@@ -373,9 +379,17 @@ c:
 			if err != nil {
 				panic(err)
 			}
-			defer configFile.Close()
+			defer func() {
+				if err := configFile.Close(); err != nil {
+					panic(err)
+				}
+			}()
 			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
-			defer os.Remove(configFilename)
+			defer func() {
+				if err := os.Remove(configFilename); err != nil {
+					panic(err)
+				}
+			}()
 			err = os.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -401,9 +415,17 @@ c:
 			if err != nil {
 				panic(err)
 			}
-			defer configFile.Close()
+			defer func() {
+				if err := configFile.Close(); err != nil {
+					panic(err)
+				}
+			}()
 			configFilename := configFile.Name()[2:] // the file name is in form of ./name.yaml, we want to remove ./
-			defer os.Remove(configFilename)
+			defer func() {
+				if err := os.Remove(configFilename); err != nil {
+					panic(err)
+				}
+			}()
 			err = os.WriteFile(configFilename, []byte(configStr), 0755)
 			Expect(err).NotTo(HaveOccurred())
 

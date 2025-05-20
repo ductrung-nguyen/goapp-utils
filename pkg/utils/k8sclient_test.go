@@ -32,7 +32,6 @@ users:
 `
 
 var _ = Describe("Test Kubernetes client", func() {
-
 	Context("Out-of-cluster", func() {
 		Context("Using wrong config path", func() {
 			It("should raise error", func() {
@@ -47,16 +46,23 @@ var _ = Describe("Test Kubernetes client", func() {
 				if err != nil {
 					panic(err)
 				}
-				defer f.Close()
+				defer func() {
+					if err := f.Close(); err != nil {
+						panic(err)
+					}
+				}()
 				filename := f.Name()
-				defer os.Remove(filename)
+				defer func() {
+					if err := os.Remove(filename); err != nil {
+						panic(err)
+					}
+				}()
 				if os.WriteFile(filename, []byte(sampleKubeConfig), os.ModePerm) != nil {
 					panic("Cannot create file for testing")
 				}
 
 				_, err = K8sClientHelper{}.GetClient(filename)
 				Expect(err).ShouldNot(HaveOccurred())
-
 			})
 		})
 	})
