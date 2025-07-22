@@ -90,7 +90,7 @@ def getCommitMessage() {
 def installCommitLint() {
      sh (
         script: """
-            curl -sL https://github.com/conventionalcommit/commitlint/releases/download/v0.10.1/commitlint_0.10.1_Linux_x86_64.tar.gz -o commitlint.tar.gz
+            curl -sL https://github.com/conventionalcommit/commitlint/releases/download/v0.10.1/commitlint_v0.10.1_Linux_x86_64.tar.gz -o commitlint.tar.gz
             tar -xvzf commitlint.tar.gz
             """,
         label: 'Install commitlint')
