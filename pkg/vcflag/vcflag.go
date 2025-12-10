@@ -149,6 +149,16 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 
 	typeOfT := value.Type()
 	switch value.Kind() {
+	case reflect.Ptr:
+		elemType := value.Type().Elem()
+		var elemValue reflect.Value
+		if value.IsNil() {
+			elemValue = reflect.New(elemType).Elem()
+		} else {
+			elemValue = value.Elem()
+		}
+		elemCopy := reflect.New(elemType).Elem()
+		return generateFlags(currentPath, key, elemValue, elemCopy, usage, viperObj, command)
 	case reflect.Struct:
 		for idx := 0; idx < typeOfT.NumField(); idx += 1 {
 			tag := getStructTag(typeOfT.Field(idx), "pflag")
