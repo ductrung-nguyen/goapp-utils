@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
 	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,46 +67,48 @@ var _ = Describe("Test filewatcher", func() {
 			fw.CheckFileInterval = 5 * time.Millisecond
 
 			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 
 			// start the watcher
 			go fw.Watch(ctx)
 
-			// start doing the change on the file in another go-routine
-			go func() {
-				// wait a bit for the watcher to detect the file
-				time.Sleep(10 * time.Millisecond)
-
-				// REMOVE file
-				_ = os.Remove(watchedFile)
-				time.Sleep(10 * time.Millisecond)
-
-				// note that this action only triggers the event CREATE
-				// the event WRITE is paused until another event raised
-				if err := os.WriteFile(watchedFile, []byte("Trigger the action CREATE + WRITE"), fs.ModePerm); err != nil {
-					PanicWith(err)
+			// Drive each filesystem transition only after the watcher has reached
+			// the state required to observe it. Fixed sleeps made this test lose
+			// the create event when the polling goroutine had not re-armed the
+			// path yet.
+			eventCount := func(op fsnotify.Op) int {
+				locker.Lock()
+				defer locker.Unlock()
+				count := 0
+				for _, event := range events {
+					if event.Name == watchedFile && event.Op == op {
+						count++
+					}
 				}
-				time.Sleep(10 * time.Millisecond)
+				return count
+			}
+			waitForEvent := func(op fsnotify.Op, occurrence int) {
+				Eventually(func() bool { return eventCount(op) >= occurrence }).Should(BeTrue())
+			}
 
-				if err := os.WriteFile(watchedFile, []byte("Execute action WRITE"), fs.ModePerm); err != nil {
-					PanicWith(err)
-				}
-				time.Sleep(10 * time.Millisecond)
+			Eventually(fw.InWatchedQueue).Should(BeTrue())
+			Expect(os.Remove(watchedFile)).To(Succeed())
+			Eventually(func() bool {
+				return eventCount(fsnotify.Remove) >= 1 && !fw.InWatchedQueue()
+			}).Should(BeTrue())
 
-				// REMOVE the file again, then create again
-				_ = os.Remove(watchedFile)
-				time.Sleep(10 * time.Millisecond)
+			Expect(os.WriteFile(watchedFile, []byte("Trigger the action CREATE + WRITE"), fs.ModePerm)).To(Succeed())
+			waitForEvent(fsnotify.Create, 1)
+			Eventually(fw.InWatchedQueue).Should(BeTrue())
+			Expect(os.WriteFile(watchedFile, []byte("Execute action WRITE"), fs.ModePerm)).To(Succeed())
+			waitForEvent(fsnotify.Write, 1)
 
-				// note that this action only triggers the event CREATE
-				// the event WRITE is paused until another event raised
-				if err := os.WriteFile(watchedFile, []byte("Removed and created again"), fs.ModePerm); err != nil {
-					PanicWith(err)
-				}
-				time.Sleep(10 * time.Millisecond)
-			}()
-
-			time.Sleep(400 * time.Millisecond)
-
-			cancel()
+			Expect(os.Remove(watchedFile)).To(Succeed())
+			Eventually(func() bool {
+				return eventCount(fsnotify.Remove) >= 2 && !fw.InWatchedQueue()
+			}).Should(BeTrue())
+			Expect(os.WriteFile(watchedFile, []byte("Removed and created again"), fs.ModePerm)).To(Succeed())
+			waitForEvent(fsnotify.Create, 2)
 
 			func() {
 				locker.Lock()
@@ -133,3 +137,206 @@ var _ = Describe("Test filewatcher", func() {
 		})
 	})
 })
+
+func TestReloadWatcherMapsMissingParentCreateToTarget(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "one", "two", "config")
+
+	rw, err := NewReloadWatcher(context.Background(), []watchapi.Target{{
+		ConfiguredPath: target,
+		ParentPath:     filepath.Dir(target),
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rw.Close(); err != nil {
+			t.Errorf("close reload watcher: %v", err)
+		}
+	}()
+
+	if err := os.Mkdir(filepath.Join(root, "one"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case event := <-rw.Events():
+		if event.Path != target {
+			t.Fatalf("event path = %q, want %q", event.Path, target)
+		}
+		if event.Op != uint32(fsnotify.Create) {
+			t.Fatalf("event op = %d, want Create", event.Op)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for parent creation event")
+	}
+}
+
+func TestReloadWatcherMapsParentEventsToMissingTarget(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "config")
+	rw, err := NewReloadWatcher(context.Background(), []watchapi.Target{{ConfiguredPath: target}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rw.Close(); err != nil {
+			t.Errorf("close reload watcher: %v", err)
+		}
+	}()
+
+	if err := os.WriteFile(target, []byte("config"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-rw.Events():
+		if event.Path != target {
+			t.Fatalf("event path = %q, want %q", event.Path, target)
+		}
+		if event.Op&uint32(fsnotify.Create) == 0 {
+			t.Fatalf("event op = %d, want Create", event.Op)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for missing target event")
+	}
+}
+
+func TestReloadWatcherDoesNotMapUnrelatedSiblingToMissingTarget(t *testing.T) {
+	root := t.TempDir()
+	targetA := filepath.Join(root, "a", "config")
+	targetB := filepath.Join(root, "b", "config")
+	rw, err := NewReloadWatcher(context.Background(), []watchapi.Target{
+		{ConfiguredPath: targetA},
+		{ConfiguredPath: targetB},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rw.Close(); err != nil {
+			t.Errorf("close reload watcher: %v", err)
+		}
+	}()
+
+	if err := os.Mkdir(filepath.Join(root, "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-rw.Events():
+		if event.Path != targetA {
+			t.Fatalf("event path = %q, want %q", event.Path, targetA)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for target a parent creation event")
+	}
+
+	if err := os.Mkdir(filepath.Join(root, "unrelated"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-rw.Events():
+		if event.Path == targetB {
+			t.Fatalf("unrelated sibling event mapped to %q", targetB)
+		}
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+func TestReloadWatcherRearmsNestedParentAfterIntermediateCreate(t *testing.T) {
+	root := t.TempDir()
+	one := filepath.Join(root, "one")
+	target := filepath.Join(one, "two", "config")
+	if err := os.Mkdir(one, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	rw, err := NewReloadWatcher(context.Background(), []watchapi.Target{{ConfiguredPath: target}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rw.Close(); err != nil {
+			t.Errorf("close reload watcher: %v", err)
+		}
+	}()
+
+	if err := os.Mkdir(filepath.Join(one, "two"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-rw.Events():
+		if event.Path != target || event.Op&uint32(fsnotify.Create) == 0 {
+			t.Fatalf("intermediate event = %#v, want target Create event", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for intermediate parent event")
+	}
+
+	if err := os.WriteFile(target, []byte("config"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case event := <-rw.Events():
+		if event.Path != target || event.Op&uint32(fsnotify.Create) == 0 {
+			t.Fatalf("target event = %#v, want target Create event", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for rearmed target event")
+	}
+}
+
+func TestReloadWatcherMapsAncestorRemoveToTargetAndRearms(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Join(root, "parent")
+	target := filepath.Join(parent, "config")
+	if err := os.Mkdir(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("config"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	rw, err := NewReloadWatcher(context.Background(), []watchapi.Target{{ConfiguredPath: target}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rw.Close(); err != nil {
+			t.Errorf("close reload watcher: %v", err)
+		}
+	}()
+
+	if err := os.RemoveAll(parent); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case event := <-rw.Events():
+			if event.Path == target && event.Op&uint32(fsnotify.Remove) != 0 {
+				goto removed
+			}
+		case <-deadline:
+			t.Fatal("timed out waiting for target Remove event after ancestor removal")
+		}
+	}
+
+removed:
+	if err := os.Mkdir(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	deadline = time.After(2 * time.Second)
+	for {
+		select {
+		case event := <-rw.Events():
+			if event.Path == target && event.Op&uint32(fsnotify.Create) != 0 {
+				if err := os.WriteFile(target, []byte("recreated"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("timed out waiting for rearmed target after ancestor removal")
+		}
+	}
+}

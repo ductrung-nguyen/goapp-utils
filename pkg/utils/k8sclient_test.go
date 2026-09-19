@@ -14,21 +14,21 @@ apiVersion: v1
 clusters:
 - cluster:
     insecure-skip-tls-verify: true
-    server: https://api.nld7.paas.westeurope.tstcur.az.amadeus.net:6443
-  name: api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443
+    server: https://127.0.0.1:6443
+  name: test-cluster
 contexts:
 - context:
-    cluster: api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443
-    namespace: splunk
-    user: pdnguyen
-  name: splunk/api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443/pdnguyen
-current-context: splunk/api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443/pdnguyen
+    cluster: test-cluster
+    namespace: test-namespace
+    user: test-user
+  name: test-namespace/test-cluster/test-user
+current-context: test-namespace/test-cluster/test-user
 kind: Config
 preferences: {}
 users:
-- name: pdnguyen
+- name: test-user
   user:
-    token: sha256~sample-token
+    token: sha256~synthetic-test-token
 `
 
 var _ = Describe("Test Kubernetes client", func() {

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
 	"github.com/fsnotify/fsnotify"
 	"golang.org/x/sys/unix"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/utils"
 )
 
 // FileWatcher is a helper struct that helps us watching a file

@@ -1,6 +1,7 @@
 package vcflag
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -848,3 +849,47 @@ d: 1m30s
 		})
 	})
 })
+
+var _ = Describe("CaptureMetadata", func() {
+	It("captures local generated flags after parsing and returns immutable copies", func() {
+		type config struct {
+			Port int      `pflag:"port" usage:"listen port"`
+			Name string   `pflag:"name"`
+			Tags []string `pflag:"tags"`
+		}
+		cmd := &cobra.Command{Use: "test"}
+		v := viper.New()
+		Expect(GenerateFlags(config{}, v, cmd)).To(Succeed())
+		Expect(cmd.Flags().Parse([]string{"--port", "8080", "--tags", "a,b"})).To(Succeed())
+		Expect(BindEnvVarsToFlagsLocal(v, cmd, "APP", nil, []string{"port", "name", "tags"})).To(Succeed())
+
+		metadata, err := CaptureMetadata(cmd)
+		Expect(err).NotTo(HaveOccurred())
+		fields := metadata.Fields()
+		Expect(fields).To(HaveLen(3))
+		Expect(fields[0].Name).To(Equal("name"))
+		Expect(fields[1].Value.Kind).To(Equal(ValueKindInt))
+		Expect(fields[1].Value.Changed).To(BeTrue())
+		Expect(fields[1].Value.DefValue).To(Equal("0"))
+		Expect(fields[2].Value.Kind).To(Equal(ValueKindStringSlice))
+		Expect(fields[1].Env.Name).To(Equal("APP_PORT"))
+
+		fields[0].Value.String = "mutated"
+		Expect(metadata.Fields()[0].Value.String).NotTo(Equal("mutated"))
+	})
+
+	It("rejects unsupported custom values with a typed error", func() {
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().Var(&testFlagValue{}, "custom", "custom")
+		_, err := CaptureMetadata(cmd)
+		var unsupported *UnsupportedValueError
+		Expect(err).To(MatchError(ContainSubstring("custom")))
+		Expect(errors.As(err, &unsupported)).To(BeTrue())
+	})
+})
+
+type testFlagValue struct{}
+
+func (*testFlagValue) String() string   { return "" }
+func (*testFlagValue) Set(string) error { return nil }
+func (*testFlagValue) Type() string     { return "custom" }

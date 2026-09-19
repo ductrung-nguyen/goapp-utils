@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/fsnotify/fsnotify"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/filewatcher"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/filewatcher"
 )
 
 func main() {
@@ -52,7 +52,7 @@ package main
 import (
 	"errors"
 
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/logger"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
 )
 
 func main() {
@@ -126,195 +126,59 @@ They works fine for simple cases. However, when we need to bind the parameters i
 And what if we want to support using parameters from environment variables?
 The module `vcflag` is designed for that purpose. It uses package `viper` to read and store configuration in different ways: from CLI params, from file, from environment variables...
 
-For example, our application has a struct Config to store the configurations.
+For applications with a configuration struct, the `bootstrap` package provides a reload-capable lifecycle around `vcflag`. Pass a config prototype to `bootstrap.New`, create the Cobra command, then assign the handler returned by `bootstrap.NewReloadRunE`. The prototype is used to generate flags and establish the output type; values are decoded into a separate value of the same type.
 
 ```go
 package main
 
 import (
-	"fmt"
-	"os"
-	"strings"
+    "context"
+    "fmt"
+    "os"
+    "os/signal"
+    "syscall"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/logger"
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/vcflag"
+    "github.com/ductrung-nguyen/goapp-utils/pkg/bootstrap"
+    "github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
 )
 
-type K8sConfig struct {
-	KubeConfigFilePath string `yaml:"kubeConfigPath"`
-	Namespace          string `yaml:"namespace"`
-}
-
 type Config struct {
-	K8sCfg      K8sConfig `yaml:"k8sConfig"`
-	Count       int       `yaml:"count" pflag:"count"`
-	Repeat      bool      `yaml:"repeat" flag:"repeat"`
-	NoUseInFlag int       `pflag:"-"`
-
-	// Logger configuration
-	Logger logger.LoggerConfig `yaml:"logger"`
-}
-
-var configManager *viper.Viper
-var cfgFile string           // allow user to specify the config file in a custom path
-var generateEmptyConfig bool // should we generate empty config file?
-
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "vcflag",
-	Short: "A simple application to demo vcflag",
-	Long: `An application to show how can we use vcflag with viper and corba
-	to build rich functionality CLI`,
-
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// This function will be run before the main logic execution
-		if generateEmptyConfig {
-			b, err := yaml.Marshal(Config{})
-			os.WriteFile("config.yaml", b, os.ModePerm)
-			return err
-		}
-		// before running the command, we need to setup the config manager
-		// to ask it to look at the configuration file in different directories
-		return setupConfigManager(configManager, "config", cmd, args)
-	},
-
-	Run: func(cmd *cobra.Command, args []string) {
-		logger.Root.Info("Starting the main logic of the command here")
-		currentConfig, _ := getConfigFromManager(configManager)
-		logger.Root.Info("We can use the config object", "config", currentConfig)
-	},
-}
-
-// this function is executed automatically whenever we use package main
-// That means, it will be executed first ( before the global variables delaration)
-func init() {
-	configManager = viper.New()
-
-	// allow user to specify the config file in any custom location
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
-	rootCmd.PersistentFlags().BoolVar(&generateEmptyConfig, "generate-empty-config", false, "generate empty config file?")
-	// generate flags from config struct
-	// to allow us override configuration from the command line
-	if err := vcflag.GenerateFlags(Config{}, configManager, rootCmd); err != nil {
-		return
-	}
-
-	// allow user to use environment variable to override the parameters (flags))
-	vcflag.BindEnvVarsToFlags(configManager, rootCmd, "DEMO", &logger.Root)
+    Count  int  `yaml:"count"`
+    Repeat bool `yaml:"repeat"`
 }
 
 func main() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+    manager, err := bootstrap.New(bootstrap.Options{
+        CommandUse: "myapp", ConfigName: "config", SearchPaths: []string{"./configs", "."},
+        MissingPolicy: bootstrap.MissingConfigAllowed, EnableEnv: true, EnvPrefix: "MYAPP",
+    }, Config{})
+    if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+
+    root, err := manager.NewCommand()
+    if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+    root.RunE, err = bootstrap.NewReloadRunE(
+        manager,
+        func() Config { return Config{} },
+        func(raw vcflag.Metadata, schema bootstrap.PrototypeSchema, defaults []byte) (bootstrap.ReloadDecoderFactory[Config], error) {
+            return bootstrap.NewYAMLReloadDecoderFactory[Config](raw, schema, defaults)
+        },
+        bootstrap.ReloadOptions[Config]{Clone: func(v Config) Config { return v }},
+    )
+    if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+    if err := root.ExecuteContext(ctx); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
 }
-
-// setupConfigManager configures the configuration manager by setting up folders that can contain configuration files
-func setupConfigManager(cfgManager *viper.Viper, configFileName string, cmd *cobra.Command, args []string) error {
-
-	// look for configuration file containing command name by order of the lower priority:
-	// first ./configs/yaml, then ./config.yaml, and then $HOME/.vcflag/config.yaml
-	configLocations := []string{"./configs/" + cmd.Name(), "./configs", ".", fmt.Sprintf("$HOME/.%s", cmd.Root().Name())}
-	if err := vcflag.InitConfigReader(
-		cfgManager, cmd, cfgFile, configFileName, "yaml",
-		configLocations, strings.ToUpper(cmd.Name()), &logger.Root, true,
-	); err != nil {
-		return err
-	}
-	cfgManager.WatchConfig()
-
-	return nil
-}
-
-// getConfigFromManager returns the configuration object from viper object
-// Note that viper takes the config from files, environment variables, and CLI flags
-func getConfigFromManager(confManager *viper.Viper) (*Config, error) {
-	conf := &Config{}
-
-	if len(confManager.AllSettings()) == 0 {
-		return nil, nil
-	}
-	err := confManager.Unmarshal(conf)
-	if err != nil {
-		logger.Root.WithName("CFG").Error(err, "unable to decode into config struct")
-		return nil, err
-	}
-	return conf, nil
-}
-
 ```
 
-When building using `go build` then executing the above application:
-```bash
-./vcflag -h
-An application to show how can we use vcflag with viper and corba
-	to build rich functionality CLI
+`NewReloadRunE` returns a Cobra `RunE` handler; it does not execute Cobra, install signal handlers, or create/own the process context. The caller must attach the returned handler to the command that owns the manager (for example, `root.RunE = runE`) and must call `ExecuteContext` with the caller's context, including any signal handling. Use the same manager-owned command boundary for subcommands: create the subcommand through that manager's `NewSubcommand` flow and attach the handler to that command, rather than attaching it to a foreign or separately constructed Cobra command. The handler captures the parsed Cobra metadata, prepares and builds the reload registration, starts the `ReloadManager`, waits for its context, and closes it. Its factory builder receives the captured metadata, prototype schema, and defaults, so custom config decoding remains possible. Pass `ReloadOptions.Subscribers` when the application needs initial/update/deletion/failure events. The complete migrated example is in `examples/vcflag/main.go`.
 
-Usage:
-  vcflag [flags]
+For applications that only need a one-shot load, `manager.Load(cmd, new(Config))` remains supported after Cobra parses flags. It does not start a watcher. The older manual capture/prepare/build lifecycle remains a legacy compatibility path, but new integrations should use `NewReloadRunE`.
 
-Flags:
-      --Count int                          Overrided by Env Var DEMO_COUNT
-      --K8sCfg.KubeConfigFilePath string   Overrided by Env Var DEMO_K8SCFG__KUBECONFIGFILEPATH
-      --K8sCfg.Namespace string            Overrided by Env Var DEMO_K8SCFG__NAMESPACE
-      --Logger.Compress                    Overrided by Env Var DEMO_LOGGER__COMPRESS
-      --Logger.Encoder string              Overrided by Env Var DEMO_LOGGER__ENCODER
-      --Logger.Environment string          Overrided by Env Var DEMO_LOGGER__ENVIRONMENT
-      --Logger.Filename string             Overrided by Env Var DEMO_LOGGER__FILENAME
-      --Logger.Folder string               Overrided by Env Var DEMO_LOGGER__FOLDER
-      --Logger.Level int                   Overrided by Env Var DEMO_LOGGER__LEVEL
-      --Logger.LogToConsole                Overrided by Env Var DEMO_LOGGER__LOGTOCONSOLE
-      --Logger.MaxAge int                  Overrided by Env Var DEMO_LOGGER__MAXAGE
-      --Logger.MaxBackups int              Overrided by Env Var DEMO_LOGGER__MAXBACKUPS
-      --Logger.MaxSizeInMB int             Overrided by Env Var DEMO_LOGGER__MAXSIZEINMB
-      --Logger.SkipCaller                  Overrided by Env Var DEMO_LOGGER__SKIPCALLER
-      --Repeat                             Overrided by Env Var DEMO_REPEAT
-      --config string                      config file
-      --generate-empty-config              generate empty config file?
-  -h, --help                               help for vcflag
-```
+Logger setup remains opt-in. When enabling logging configuration, provide the supported fields explicitly (as in the logging example), for example `logger.InitLogger(&logger.LoggerConfig{Folder: "logs", Filename: "app.log", LogToConsole: true, Level: 3, MaxSizeInMB: 100, MaxBackups: 2, MaxAge: 10, Compress: true})`. Do not pass an empty `LoggerConfig`, because it has no output sink.
 
-We are able to use config from a yaml file from some default directories. If the application cannot find the config file in these folder, it will panic.
-Or we can specify our configuration file through `--config <path_to_config_file>`.
-
-We can also use environment variables to override the values, for example:
-```bash
-# override the log level to 3
-DEMO_LOGGER__LEVEL=3 ./vcflag
-```
-
-To see how a config file is look like, please run `./vcflag --generate-empty-config`
+Configuration files are YAML (`config.yaml` by default) and are searched in the configured `SearchPaths`. Set `MissingPolicy: bootstrap.MissingConfigRequired` when a file is mandatory. With environment binding enabled, the generated flag for the `Count` field is `--Count` (the field has no `pflag` or `mapstructure` name tag); it can be overridden by `MYAPP_COUNT`.
 
 ## 2.4. HTTP Client
-
 ## 2.5. Kubernetes client
-
-
-
-# 3. Important note
-As this library is stored in a private repository, in order to use it in your code, you might need to:
-
-### 1. Configurig git to using SSH instead of HTTPS
-Run the below command (only need to run once):
-
-```bash
-git config --global url."ssh://git@git.rnd.amadeus.net/".insteadOf "https://rndwww.nce.amadeus.net/git/scm/"
-```
-
-### 2.: Using `GOPRIVATE`
-Run
-
-```bash
-go env -w GOPRIVATE='rndwww.nce.amadeus.net/*'
-```
-
-if you have multiple private modules, just put them in a list separated by comma (`,`).
-
-or
-```bash
-export GOPRIVATE=*
-```

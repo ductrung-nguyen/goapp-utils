@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"rndwww.nce.amadeus.net/git/SPLUNK/goapp-utils/pkg/logger"
+	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
 )
 
 func main() {
