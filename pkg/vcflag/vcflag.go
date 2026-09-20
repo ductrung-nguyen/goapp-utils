@@ -297,26 +297,6 @@ func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, lo
 			f.Usage += ". "
 		}
 		f.Usage += "Overrided by Env Var " + envName
-
-		// Apply the viper config value to the flag when the flag is not set and viper has a value
-		// if !f.Changed && v.IsSet(f.Name) {
-		// 	flagVal := v.Get(f.Name)
-		// 	if reflect.TypeOf(flagVal).Kind() == reflect.Slice || reflect.TypeOf(flagVal).Kind() == reflect.Array {
-		// 		slice := reflect.ValueOf(flagVal)
-		// 		dataInStr := make([]string, slice.Len())
-
-		// 		for i := 0; i < slice.Len(); i++ {
-		// 			dataInStr[i] = slice.Index(i).Elem().String()
-		// 		}
-		// 		buff := new(bytes.Buffer)
-		// 		wr := csv.NewWriter(buff)
-		// 		wr.Write(dataInStr)
-		// 		wr.Flush()
-		// 		_ = cmd.Flags().Set(f.Name, buff.String())
-		// 	} else {
-		// 		_ = cmd.Flags().Set(f.Name, fmt.Sprintf("%v", flagVal))
-		// 	}
-		// }
 	})
 }
 
