@@ -1,0 +1,7 @@
+team: "engineering"
+APP_TITLE: "Go App Utils"
+
+ALLOW_PR_TO_MASTER_FROM:
+  - "^hotfix/.*$"
+  - "^beta$"
+  - "^v[0-9]+\\.[0-9]+\\.[0-9]+-beta\\.[0-9]+$"

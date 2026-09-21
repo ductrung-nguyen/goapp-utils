@@ -1,60 +1,64 @@
+# Image URL to use for local image-building targets.
+IMG ?= $(shell basename "$$(pwd)")
 
-GO_VERSION := 1.20
+PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+ARCH := amd64
+else ifeq ($(ARCH),arm64)
+ARCH := arm64
+endif
 
-# ginkgo version
-GINKGO_VERSION := $(shell cat go.mod | grep ginkgo/v2 | cut -d" " -f2)
+APPNAME := manager
+GO_VERSION := $(shell awk '/^go / { print $$2; exit }' go.mod)
+DOCKER := docker
+SRC_FOLDER := .
+KUBECONFIG_PATH ?= $(HOME)/.kube/config
 
-GOLANG_CI_LINT_VERSION := 1.52.2
+.PHONY: all help fmt vet lint test build run example docker-build docker-build-local docker-run docker-push
 
-.PHONY: all $(DIRS)
 all: test
 
-.PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-##@ Initialize env
-.PHONY: install-go
-install-go:
-	command -v go >/dev/null 2>&1 && ( echo >&2 "Go is installed. No need to install again"; exit 0; ) || \
-	( echo >&2 "Installing go. Need sudo permission" && \
-		curl -Lo go_installer https://get.golang.org/linux && \
-		chmod +x go_installer -version ${GO_VERSION} && \
-		sudo ./go_installer && rm go_installer )
+fmt: ## Run gofmt against tracked Go files.
+	NO_PROXY=* GOPROXY=off GOSUMDB=off gofmt -w $$(git ls-files -z '*.go' | xargs -0)
 
-.PHONY: install-testing-package
-install-testing-package:
-	command -v ginkgo >/dev/null 2>&1 && echo "No need to install testing package again" || ( \
-		go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}; \
-		go get github.com/onsi/gomega/...; \
-	)
-
-install-golang-cli:
-    # wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION};
-	[ -f "./bin/golangci-lint" ] && echo "No need to install golang-cli again" ||  (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANG_CI_LINT_VERSION})
-
-.PHONY: init
-## initialize the working environment
-init: install-go install-testing-package install-golang-cli
-	go mod download
-	go mod tidy
-
-
-##@ Development
-
-.PHONY: fmt
-fmt: ## Run go fmt against code.
-	go fmt ./...
-
-.PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go vet ./...
 
-.PHONY: lint
-lint: ## Run go vet against code.
-	./bin/golangci-lint run
+lint: ## Run the local golangci-lint binary.
+	@test -x ./bin/golangci-lint || { echo "missing local golangci-lint" >&2; exit 1; }
+	NO_PROXY=* GOPROXY=off GOSUMDB=off ./bin/golangci-lint run
 
-.PHONY: test
-test: init fmt vet lint ## Run tests.
-	ginkgo --json-report ./ginkgo.report -r --race --randomize-all -coverprofile=coverage.out --junit-report=report.xml
-	go tool cover -html=coverage.out -o coverage.html
+test: ## Run offline Go tests.
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go test ./...
+
+build: ## Build all Go packages.
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go build ./...
+
+example: ## Build and run the vcflag example.
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go build ./examples/vcflag
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go run ./examples/vcflag --help
+
+run: ## Run a controller from your host.
+	NO_PROXY=* GOPROXY=off GOSUMDB=off go run ./main.go
+
+docker-build: ## Build a local Docker image when Dockerfile is present.
+	@test -f Dockerfile || { echo "Dockerfile is required; Docker build disabled" >&2; exit 1; }
+	@echo "Building image ${IMG}:latest"
+	$(DOCKER) build --target production -t ${IMG}:latest -f Dockerfile --build-arg GO_VERSION=${GO_VERSION} .
+
+docker-build-local: ## Build a local image with an existing kubeconfig path.
+	@test -f "${KUBECONFIG_PATH}" || { echo "KUBECONFIG_PATH must reference an existing file" >&2; exit 1; }
+	@test -f Dockerfile || { echo "Dockerfile is required; Docker build disabled" >&2; exit 1; }
+	@echo "Building image ${IMG}:latest"
+	$(DOCKER) build --target production -t ${IMG}:latest -f Dockerfile --build-arg GO_VERSION=${GO_VERSION} .
+
+docker-run: ## Run the built Docker image.
+	@test -f ./config.test.yaml || cp ./config.test.yaml.sample ./config.test.yaml
+	$(DOCKER) run -v "$$(pwd)/config.test.yaml:/opt/workspace/configs/config.yaml" -p 3030:3030 ${IMG}:latest
+
+docker-push: ## Docker publishing is disabled.
+	@echo "Docker publishing is disabled; no destination configured"; exit 1

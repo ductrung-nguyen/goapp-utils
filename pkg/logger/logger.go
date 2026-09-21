@@ -43,32 +43,6 @@ type LoggerConfig struct {
 	SkipCaller bool `yaml:"skipCaller"`
 }
 
-// default configuration for production environment
-var DefaultPrdConfig = LoggerConfig{
-	Environment:  "prod",    // or any other value to use Environment "development"
-	Folder:       "logs",    // where to store the log files
-	Filename:     "app.log", // log file's name
-	Encoder:      "json",    // or any other value to use encoder "console"
-	LogToConsole: true,      // it will write logs to file and stdout
-	Level:        2,         // The maximum level of the logs that can be printed
-	MaxSizeInMB:  100,       // max size of each log file before rolling
-	MaxAge:       10,        // max age of a log file
-	Compress:     true,
-}
-
-// default configuration for dev environment
-var DefaultDevConfig = LoggerConfig{
-	Environment:  "dev",                // or any other value to use Environment "development"
-	Folder:       "logs",               // where to store the log files
-	Filename:     "app.log",            // log file's name
-	Encoder:      "console",            // or any other value to use encoder "console"
-	LogToConsole: true,                 // it will write logs to file and stdout
-	Level:        -int(zap.DebugLevel), // The maximum level of the logs that can be printed
-	MaxSizeInMB:  500,                  // max size of each log file before rolling
-	MaxAge:       90,                   // max age of a log file
-	Compress:     true,
-}
-
 func init() {
 	InitLogger(nil)
 }
@@ -76,7 +50,20 @@ func init() {
 // InitLogger initializes the logger based on running mode
 func InitLogger(cf *LoggerConfig) {
 	if cf == nil {
-		cf = &DefaultDevConfig
+		cf = &LoggerConfig{
+			Folder:       "logs",
+			Filename:     "prod.log",
+			LogToConsole: true,
+			Level:        -int(zap.DebugLevel),
+			// max size of each log file before rolling
+			MaxSizeInMB: 500,
+			// number of backups
+			MaxBackups: 2,
+			// compress the log file
+			Compress: true,
+			// 90 days
+			MaxAge: 90,
+		}
 	}
 
 	Root = zapr.NewLogger(NewLogger(*cf))

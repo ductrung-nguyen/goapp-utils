@@ -149,6 +149,16 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 
 	typeOfT := value.Type()
 	switch value.Kind() {
+	case reflect.Pointer:
+		elemType := value.Type().Elem()
+		var elemValue reflect.Value
+		if value.IsNil() {
+			elemValue = reflect.New(elemType).Elem()
+		} else {
+			elemValue = value.Elem()
+		}
+		elemCopy := reflect.New(elemType).Elem()
+		return generateFlags(currentPath, key, elemValue, elemCopy, usage, viperObj, command)
 	case reflect.Struct:
 		for idx := 0; idx < typeOfT.NumField(); idx += 1 {
 			tag := getStructTag(typeOfT.Field(idx), "pflag")
@@ -229,6 +239,45 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 	return viperObj.BindPFlag(path, command.Flags().Lookup(path))
 }
 
+// BindEnvVarsToFlagsLocal binds only the named local flags to environment
+// variables. It is additive to BindEnvVarsToFlags and does not inspect or
+// mutate inherited persistent flags.
+func BindEnvVarsToFlagsLocal(
+	viperObj *viper.Viper,
+	cmd *cobra.Command,
+	envPrefix string,
+	logger *logr.Logger,
+	flagNames []string,
+) error {
+	viperObj.SetEnvPrefix(envPrefix)
+	viperObj.AutomaticEnv()
+	viperObj.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	for _, name := range flagNames {
+		flag := cmd.LocalNonPersistentFlags().Lookup(name)
+		if flag == nil {
+			return fmt.Errorf("flag %q is not a local non-persistent flag", name)
+		}
+		envName := envNameForFlag(envPrefix, name)
+		if logger != nil {
+			logger.V(2).Info("Binding env to flag", "env", envName, "flag", name)
+		}
+		if err := viperObj.BindEnv(name, envName); err != nil {
+			return fmt.Errorf("bind environment variable %q to flag %q: %w", envName, name, err)
+		}
+		if flag.Annotations == nil {
+			flag.Annotations = map[string][]string{}
+		}
+		flag.Annotations["vcflag-env"] = []string{envName}
+	}
+	return nil
+}
+
+func envNameForFlag(envPrefix, flagName string) string {
+	envVarSuffix := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(flagName, "-", "_"), ".", "__"))
+	return fmt.Sprintf("%s_%s", envPrefix, envVarSuffix)
+}
+
 // Bind each cobra flag to its associated viper configuration (config file and environment variable)
 func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, logger *logr.Logger) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
@@ -249,4 +298,145 @@ func bindEnvVarsToFlags(cmd *cobra.Command, v *viper.Viper, envPrefix string, lo
 		}
 		f.Usage += "Overrided by Env Var " + envName
 	})
+}
+
+// ValueKind describes the pflag representation captured for a generated flag.
+type ValueKind uint8
+
+const (
+	ValueKindUnknown ValueKind = iota
+	ValueKindBool
+	ValueKindInt
+	ValueKindUint
+	ValueKindInt16
+	ValueKindUint16
+	ValueKindInt32
+	ValueKindUint32
+	ValueKindInt64
+	ValueKindUint64
+	ValueKindFloat32
+	ValueKindFloat64
+	ValueKindString
+	ValueKindDuration
+	ValueKindBoolSlice
+	ValueKindIntSlice
+	ValueKindUintSlice
+	ValueKindInt32Slice
+	ValueKindInt64Slice
+	ValueKindStringSlice
+)
+
+// Value is the immutable raw state of a pflag value.
+type Value struct {
+	Kind     ValueKind
+	Type     string
+	String   string
+	DefValue string
+	Changed  bool
+}
+
+// FlagValue is retained as an additive compatibility alias.
+type FlagValue = Value
+
+// EnvBinding records the environment variable associated with a flag.
+type EnvBinding struct{ Name string }
+
+type Field struct {
+	Name  string
+	Usage string
+	Value Value
+	Env   EnvBinding
+}
+
+// KeyValue is a key and its default representation.
+type KeyValue struct {
+	Key   string
+	Value string
+}
+
+// Metadata is an immutable snapshot of local generated flags.
+type Metadata struct{ fields []Field }
+
+// Fields returns a deep copy of captured fields.
+func (m Metadata) Fields() []Field {
+	result := make([]Field, len(m.fields))
+	copy(result, m.fields)
+	return result
+}
+
+// CaptureMetadata captures local flags after Cobra parsing.
+func CaptureMetadata(cmd *cobra.Command) (Metadata, error) {
+	if cmd == nil {
+		return Metadata{}, fmt.Errorf("vcflag: nil command")
+	}
+	fields := make([]Field, 0)
+	var unsupported string
+	cmd.LocalNonPersistentFlags().VisitAll(func(flag *pflag.Flag) {
+		kind, ok := valueKind(flag.Value.Type())
+		if !ok {
+			unsupported = flag.Name
+			return
+		}
+		env := ""
+		if names := flag.Annotations["vcflag-env"]; len(names) > 0 {
+			env = names[0]
+		}
+		fields = append(fields, Field{Name: flag.Name, Usage: flag.Usage, Value: Value{Kind: kind, Type: flag.Value.Type(), String: flag.Value.String(), DefValue: flag.DefValue, Changed: flag.Changed}, Env: EnvBinding{Name: env}})
+	})
+	if unsupported != "" {
+		return Metadata{}, &UnsupportedValueError{Name: unsupported}
+	}
+	return Metadata{fields: fields}, nil
+}
+
+// UnsupportedValueError reports a pflag value that cannot be decoded safely.
+type UnsupportedValueError struct{ Name string }
+
+func (e *UnsupportedValueError) Error() string {
+	return fmt.Sprintf("vcflag: unsupported flag value %q", e.Name)
+}
+
+func valueKind(typ string) (ValueKind, bool) {
+	switch typ {
+	case "bool":
+		return ValueKindBool, true
+	case "int":
+		return ValueKindInt, true
+	case "uint":
+		return ValueKindUint, true
+	case "int16":
+		return ValueKindInt16, true
+	case "uint16":
+		return ValueKindUint16, true
+	case "int32":
+		return ValueKindInt32, true
+	case "uint32":
+		return ValueKindUint32, true
+	case "int64":
+		return ValueKindInt64, true
+	case "uint64":
+		return ValueKindUint64, true
+	case "float32":
+		return ValueKindFloat32, true
+	case "float64":
+		return ValueKindFloat64, true
+	case "string":
+		return ValueKindString, true
+	case "duration":
+		return ValueKindDuration, true
+	case "boolSlice":
+		return ValueKindBoolSlice, true
+	case "intSlice":
+		return ValueKindIntSlice, true
+	case "uintSlice":
+		return ValueKindUintSlice, true
+	case "int32Slice":
+		return ValueKindInt32Slice, true
+	case "int64Slice":
+		return ValueKindInt64Slice, true
+	case "stringSlice":
+		return ValueKindStringSlice, true
+	default:
+		return ValueKindUnknown, false
+	}
 }

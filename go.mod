@@ -3,12 +3,11 @@ module github.com/ductrung-nguyen/goapp-utils
 go 1.20
 
 require (
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-logr/logr v1.2.4
 	github.com/onsi/ginkgo/v2 v2.13.0
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.10
 	golang.org/x/net v0.17.0
-	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.28.2
 )
 
@@ -50,6 +49,7 @@ require (
 	google.golang.org/appengine v1.6.8 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/api v0.28.2 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230905202853-d090da108d2f // indirect
@@ -70,6 +70,6 @@ require (
 	golang.org/x/sys v0.13.0
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.28.2
 )

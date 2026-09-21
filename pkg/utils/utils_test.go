@@ -14,9 +14,18 @@ var _ = Describe("Test FileExists", func() {
 			if err != nil {
 				panic(err)
 			}
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					panic(err)
+				}
+			}()
+
 			filename := f.Name()
-			defer os.Remove(filename)
+			defer func() {
+				if err := os.Remove(filename); err != nil {
+					panic(err)
+				}
+			}()
 
 			Expect(FileExists(filename)).To(BeTrue())
 		})
@@ -28,9 +37,17 @@ var _ = Describe("Test FileExists", func() {
 			if err != nil {
 				panic(err)
 			}
-			defer f.Close()
+			defer func() {
+				if err := f.Close(); err != nil {
+					panic(err)
+				}
+			}()
 			filename := f.Name()
-			defer os.Remove(filename)
+			defer func() {
+				if err := os.Remove(filename); err != nil {
+					panic(err)
+				}
+			}()
 
 			Expect(FileExists(filename + "-wrong")).To(BeFalse())
 		})
@@ -45,7 +62,11 @@ var _ = Describe("Test FolderExists", func() {
 				panic(err)
 			}
 
-			defer os.Remove(folderName)
+			defer func() {
+				if err := os.Remove(folderName); err != nil {
+					panic(err)
+				}
+			}()
 
 			FolderExists(folderName)
 			Expect(FolderExists(folderName)).To(BeTrue())
@@ -57,13 +78,16 @@ var _ = Describe("Test FolderExists", func() {
 				panic(err)
 			}
 
-			defer os.Remove(folderName)
+			defer func() {
+				if err := os.Remove(folderName); err != nil {
+					panic(err)
+				}
+			}()
 
 			FolderExists(folderName)
 			Expect(FolderExists(folderName + "-wrong")).To(BeFalse())
 		})
 	})
-
 })
 
 var _ = Describe("Test GetCurrentExecPath", func() {

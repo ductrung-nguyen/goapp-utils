@@ -14,25 +14,24 @@ apiVersion: v1
 clusters:
 - cluster:
     insecure-skip-tls-verify: true
-    server: https://api.nld7.paas.westeurope.tstcur.az.amadeus.net:6443
-  name: api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443
+    server: https://127.0.0.1:6443
+  name: test-cluster
 contexts:
 - context:
-    cluster: api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443
-    namespace: splunk
-    user: pdnguyen
-  name: splunk/api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443/pdnguyen
-current-context: splunk/api-nld7-paas-westeurope-tstcur-az-amadeus-net:6443/pdnguyen
+    cluster: test-cluster
+    namespace: test-namespace
+    user: test-user
+  name: test-namespace/test-cluster/test-user
+current-context: test-namespace/test-cluster/test-user
 kind: Config
 preferences: {}
 users:
-- name: pdnguyen
+- name: test-user
   user:
-    token: sha256~sample-token
+    token: sha256~synthetic-test-token
 `
 
 var _ = Describe("Test Kubernetes client", func() {
-
 	Context("Out-of-cluster", func() {
 		Context("Using wrong config path", func() {
 			It("should raise error", func() {
@@ -47,16 +46,23 @@ var _ = Describe("Test Kubernetes client", func() {
 				if err != nil {
 					panic(err)
 				}
-				defer f.Close()
+				defer func() {
+					if err := f.Close(); err != nil {
+						panic(err)
+					}
+				}()
 				filename := f.Name()
-				defer os.Remove(filename)
+				defer func() {
+					if err := os.Remove(filename); err != nil {
+						panic(err)
+					}
+				}()
 				if os.WriteFile(filename, []byte(sampleKubeConfig), os.ModePerm) != nil {
 					panic("Cannot create file for testing")
 				}
 
 				_, err = K8sClientHelper{}.GetClient(filename)
 				Expect(err).ShouldNot(HaveOccurred())
-
 			})
 		})
 	})
