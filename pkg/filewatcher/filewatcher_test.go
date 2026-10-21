@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
 	"github.com/fsnotify/fsnotify"
+	"github.com/ndtrunk/goapp-utils/pkg/logger"
+	"github.com/ndtrunk/goapp-utils/pkg/utils"
+	"github.com/ndtrunk/goapp-utils/pkg/watchapi"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"

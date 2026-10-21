@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/utils"
 	"github.com/fsnotify/fsnotify"
+	"github.com/ndtrunk/goapp-utils/pkg/utils"
 	"golang.org/x/sys/unix"
 )
 

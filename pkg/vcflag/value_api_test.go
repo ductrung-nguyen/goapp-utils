@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
 )
 
 func TestMetadataUsesCanonicalValueType(t *testing.T) {

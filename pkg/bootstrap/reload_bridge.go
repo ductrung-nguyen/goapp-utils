@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"

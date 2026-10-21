@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
+	"github.com/ndtrunk/goapp-utils/pkg/watchapi"
 	"github.com/spf13/cobra"
 )
 

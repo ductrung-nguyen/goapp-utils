@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["Go"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: semantic-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tested commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Ensure the tested commit is still main
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$TESTED_SHA"
+
+      - name: Set up current Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          check-latest: true
+
+      - name: Build and scan pinned Go release tooling
+        env:
+          GOBIN: ${{ runner.temp }}
+          GOMODCACHE: ${{ runner.temp }}/go-mod-cache
+          GOCACHE: ${{ runner.temp }}/go-build-cache
+        run: scripts/build-release-tools.sh
+
+      - name: Create Go-compatible release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: scripts/release.sh "$RUNNER_TEMP/semantic-release"

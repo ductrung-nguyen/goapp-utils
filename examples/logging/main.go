@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
+	"github.com/ndtrunk/goapp-utils/pkg/logger"
 )
 
 func main() {

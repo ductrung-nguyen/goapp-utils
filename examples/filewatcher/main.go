@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/filewatcher"
 	"github.com/fsnotify/fsnotify"
+	"github.com/ndtrunk/goapp-utils/pkg/filewatcher"
 )
 
 func main() {
