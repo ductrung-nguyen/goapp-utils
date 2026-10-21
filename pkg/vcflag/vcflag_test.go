@@ -73,6 +73,30 @@ var _ = Describe("Test GenerateFlags", func() {
 				Expect(values).To(Equal([]string{"duration"}))
 			})
 		})
+		Context("int64 and duration fields", func() {
+			It("keeps raw int64 flags separate from time.Duration and decodes typed config values", func() {
+				type options struct {
+					Count int64         `pflag:"count" mapstructure:"count"`
+					Delay time.Duration `pflag:"delay" mapstructure:"delay"`
+				}
+
+				v := viper.New()
+				command := &cobra.Command{}
+				Expect(GenerateFlags(options{}, v, command)).To(Succeed())
+
+				Expect(command.Flags().Lookup("count").Value.Type()).To(Equal("int64"))
+				Expect(command.Flags().Lookup("delay").Value.Type()).To(Equal("duration"))
+				Expect(command.Flags().Parse([]string{
+					"--count=4294967297",
+					"--delay=250ms",
+				})).To(Succeed())
+
+				var decoded options
+				Expect(v.Unmarshal(&decoded)).To(Succeed())
+				Expect(decoded.Count).To(Equal(int64(4294967297)))
+				Expect(decoded.Delay).To(Equal(250 * time.Millisecond))
+			})
+		})
 
 		Context("struct", func() {
 			It("Should generate flags ok", func() {
