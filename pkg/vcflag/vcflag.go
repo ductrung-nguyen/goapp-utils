@@ -38,9 +38,7 @@ const (
 	defaultConfigFile = "config"
 )
 
-var (
-	durationKind = reflect.TypeOf(1 * time.Second).Kind()
-)
+var durationType = reflect.TypeOf(time.Duration(0))
 
 // Init the config reader via Viper and Cobra objects.
 // we can specify either the config file name, or the config name, and its type
@@ -125,22 +123,22 @@ func getStructTag(f reflect.StructField, tagName string) string {
 	return strings.Trim(string(f.Tag.Get(tagName)), " \t")
 }
 
-// GenerateFlags creates flags based on the attributes of object `value`
-// and bind them to viper
-// this function should be called when initialize cobra command
-// return error in case these is any issue when generating flags for CLI
+// GenerateFlags creates flags from value and binds them to the supplied Viper instance.
+// It adds the flags to the Cobra command's local flag set.
 func GenerateFlags(value interface{}, viperObj *viper.Viper, command *cobra.Command) error {
-	original := reflect.ValueOf(value)
-	copy := reflect.New(original.Type()).Elem()
-	return generateFlags("", "", original, copy, "", viperObj, command)
+	return GenerateFlagsToFlagSet(value, viperObj, command.Flags())
 }
 
-// GenerateFlags creates flags based on the attributes of object `value`
-// and bind them to viper
-// this function should be called when initialize cobra command
-// return error in case these is any issue when generating flags for CLI
+// GenerateFlagsToFlagSet creates flags from value, adds them to flags, and binds
+// them directly to the supplied Viper instance.
+func GenerateFlagsToFlagSet(value interface{}, viperObj *viper.Viper, flags *pflag.FlagSet) error {
+	original := reflect.ValueOf(value)
+	copy := reflect.New(original.Type()).Elem()
+	return generateFlags("", "", original, copy, "", viperObj, flags)
+}
+
 func generateFlags(currentPath string, key string, value reflect.Value, copy reflect.Value, usage string,
-	viperObj *viper.Viper, command *cobra.Command) error {
+	viperObj *viper.Viper, flags *pflag.FlagSet) error {
 
 	path := key
 	if currentPath != "" {
@@ -158,7 +156,7 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 			elemValue = value.Elem()
 		}
 		elemCopy := reflect.New(elemType).Elem()
-		return generateFlags(currentPath, key, elemValue, elemCopy, usage, viperObj, command)
+		return generateFlags(currentPath, key, elemValue, elemCopy, usage, viperObj, flags)
 	case reflect.Struct:
 		for idx := 0; idx < typeOfT.NumField(); idx += 1 {
 			tag := getStructTag(typeOfT.Field(idx), "pflag")
@@ -180,63 +178,65 @@ func generateFlags(currentPath string, key string, value reflect.Value, copy ref
 				tag = strings.ReplaceAll(tag, " ", "_")
 			}
 
-			// GenerateFlags(path, tag, value.Field(idx), copy.Field(idx), viperObj, command)
-			if err := generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), usage, viperObj, command); err != nil {
+			// Generate flags recursively for each struct field.
+			if err := generateFlags(path, tag, value.Field(idx), reflect.New(value.Field(idx).Type()).Elem(), usage, viperObj, flags); err != nil {
 				return err
 			}
 		}
 		return nil
 	case reflect.Bool:
-		command.Flags().Bool(path, false, usage)
-	case durationKind:
-		command.Flags().Duration(path, 0*time.Second, usage)
+		flags.Bool(path, false, usage)
 	case reflect.Int:
-		command.Flags().Int(path, 0, usage)
+		flags.Int(path, 0, usage)
 	case reflect.Uint:
-		command.Flags().Uint(path, 0, usage)
+		flags.Uint(path, 0, usage)
 	case reflect.Int16:
-		command.Flags().Int16(path, 0, usage)
+		flags.Int16(path, 0, usage)
 	case reflect.Uint16:
-		command.Flags().Uint16(path, 0, usage)
+		flags.Uint16(path, 0, usage)
 	case reflect.Int32:
-		command.Flags().Int32(path, 0, usage)
+		flags.Int32(path, 0, usage)
 	case reflect.Uint32:
-		command.Flags().Uint32(path, 0, usage)
+		flags.Uint32(path, 0, usage)
 	case reflect.Int64:
-		command.Flags().Int64(path, 0, usage)
+		if typeOfT == durationType {
+			flags.Duration(path, 0, usage)
+		} else {
+			flags.Int64(path, 0, usage)
+		}
 	case reflect.Uint64:
-		command.Flags().Uint64(path, 0, usage)
+		flags.Uint64(path, 0, usage)
 	case reflect.Array:
 	case reflect.Slice:
 		copy.Set(reflect.MakeSlice(value.Type(), 1, 1))
 		switch copy.Index(0).Kind() {
 		case reflect.Int:
-			command.Flags().IntSlice(path, []int{}, usage)
+			flags.IntSlice(path, []int{}, usage)
 		case reflect.Uint:
-			command.Flags().UintSlice(path, []uint{}, usage)
+			flags.UintSlice(path, []uint{}, usage)
 		case reflect.Int16:
-			command.Flags().Int32Slice(path, []int32{}, usage)
+			flags.Int32Slice(path, []int32{}, usage)
 		case reflect.Uint16:
-			command.Flags().Int32Slice(path, []int32{}, usage)
+			flags.Int32Slice(path, []int32{}, usage)
 		case reflect.Int32:
-			command.Flags().Int32Slice(path, []int32{}, usage)
+			flags.Int32Slice(path, []int32{}, usage)
 		case reflect.Uint32:
-			command.Flags().Int32Slice(path, []int32{}, usage)
+			flags.Int32Slice(path, []int32{}, usage)
 		case reflect.Int64:
-			command.Flags().Int64Slice(path, []int64{}, usage)
+			flags.Int64Slice(path, []int64{}, usage)
 		case reflect.Uint64:
-			command.Flags().Int64Slice(path, []int64{}, usage)
+			flags.Int64Slice(path, []int64{}, usage)
 		case reflect.String:
-			command.Flags().StringSlice(path, []string{}, usage)
+			flags.StringSlice(path, []string{}, usage)
 		default:
 			return nil
 		}
 	case reflect.String:
-		command.Flags().String(path, "", usage)
+		flags.String(path, "", usage)
 	default:
-		command.Flags().String(path, "", usage)
+		flags.String(path, "", usage)
 	}
-	return viperObj.BindPFlag(path, command.Flags().Lookup(path))
+	return viperObj.BindPFlag(path, flags.Lookup(path))
 }
 
 // BindEnvVarsToFlagsLocal binds only the named local flags to environment
