@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/bootstrap"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/logger"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
+	"github.com/ndtrunk/goapp-utils/pkg/bootstrap"
+	"github.com/ndtrunk/goapp-utils/pkg/logger"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
 )
 
 type K8sConfig struct {

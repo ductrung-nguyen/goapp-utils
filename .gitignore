@@ -24,6 +24,10 @@ profile.cov
 go.work
 go.work.sum
 
+# Native semantic-release build output and plugin cache
+.semrel/
+.release-tools/
+
 # env file
 .env
 

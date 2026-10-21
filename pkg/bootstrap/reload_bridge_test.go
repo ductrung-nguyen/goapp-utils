@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
 	"github.com/spf13/cobra"
 )
 

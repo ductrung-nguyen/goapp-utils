@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/vcflag"
 	"github.com/go-logr/logr"
+	"github.com/ndtrunk/goapp-utils/pkg/vcflag"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
 	"github.com/fsnotify/fsnotify"
+	"github.com/ndtrunk/goapp-utils/pkg/watchapi"
 )
 
 // ReloadWatcher is a lifecycle-safe fsnotify source for configuration reloads.

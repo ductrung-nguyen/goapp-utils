@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/filewatcher"
-	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
 	"github.com/fsnotify/fsnotify"
+	"github.com/ndtrunk/goapp-utils/pkg/filewatcher"
+	"github.com/ndtrunk/goapp-utils/pkg/watchapi"
 )
 
 type DeletedPolicy uint8

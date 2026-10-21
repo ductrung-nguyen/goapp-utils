@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ductrung-nguyen/goapp-utils/pkg/watchapi"
+	"github.com/ndtrunk/goapp-utils/pkg/watchapi"
 )
 
 func TestReloadManagerDefaultFactoryReloadsAndCloses(t *testing.T) {
